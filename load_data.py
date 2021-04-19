@@ -130,16 +130,17 @@ class loadInTxt(LoadObj):
     def save(self, name, _dict):
 
         if super().__dict__['version'] == 1:
+            s = super().__dict__['separator']
             with open(name, 'w', encoding='utf-8') as f:
                 f.write(
-                    '\n'.join([f"{x}{super().separator} {y}" for x, y in zip(_dict.keys(), _dict.values())])
+                    '\n'.join([f"{x}{s} {y}" for x, y in _dict.items()])
                 )
         if super().__dict__['version'] == 2:
             text = ""
             for key in _dict:
                 text += "# " + key + "\n"
                 if type(_dict[key]) == dict:
-                    text += '\n'.join([f"{x}{super().separator} {y}" for x, y in zip(_dict[key].keys(), _dict[key].values())])
+                    text += '\n'.join([f"{x}{super().__dict__['separator']} {y}" for x, y in _dict.items()])
                 else:
                     text += str(_dict[key])
                 text += '\n\n'
