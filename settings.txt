@@ -6,5 +6,6 @@ tokens_notifications: false
 assets_notifications: true
 cpu_limit: 90
 net_limit: 90
-ram_limit: 80
+ram_limit: 90
 out_of_limit_timeout: 3600
+low_logging: true

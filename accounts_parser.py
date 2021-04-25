@@ -1,3 +1,4 @@
+from re import M
 import requests
 from aiogram import Bot, Dispatcher, executor, types
 import asyncio
@@ -93,7 +94,8 @@ def get_asset_info(asset_response):
             
             rarity = asset_info.get('data').get('rarity') if collection_name == 'Alien Worlds' else None
             template = asset_info.get('template')
-            template = template['template_id'] if template.get('template_id') != None else None
+            if template:
+                template = template['template_id'] if template.get('template_id') != None else None
             
             return {
                 'success': True,
@@ -145,14 +147,14 @@ def notification(text):
 
 async def send_welcome(text):
     try:
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html')
+        await bot.send_message(int(settings['user_id']), text, parse_mode='html', disable_web_page_preview=True)
     except Exception as e:
         print(f'notification error: {e}')
 
 
 s = requests.Session()
 notification(
-    f"<b>nft_notifications: {settings['nfts_notifications']}\n"
+    f"<b>nfts_notifications: {settings['nfts_notifications']}\n"
     f"tokens_notifications: {settings['tokens_notifications']}\n"
     f"assets_notifications: {settings['assets_notifications']}</b>"
 )
@@ -174,11 +176,13 @@ def run():
                 tokens_response = s.get(token).json()
                 nfts_response = s.get(nft).json()
             except:
+                log("Ошибка: api.bloks.io недоступен. Повторяю попытку подключения...")
                 continue
             _p = wax_token_payload.copy()
             _p['account'] = account
             try:
                 wax_balance = s.post(WAX_TOKEN_URL, json=_p).json()
+                log(wax_balance)
             except:
                 continue
             
@@ -193,24 +197,27 @@ def run():
 
             if nfts_count != accounts_dumb[account]['nfts_count']:
                 # nfts_count changed
-                if nfts_count > accounts_dumb[account]['nfts_count']:
-                    _type = 'new NFT'
-                    body = f"New NFT card(s) in your inventory.\n"\
-                           f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
+                if settings['low_logging'] != 'true':
+                    if nfts_count > accounts_dumb[account]['nfts_count']:
+                        _type = 'new NFT'
+                        body = f"New NFT card(s) in your inventory.\n"\
+                            f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
+                    else:
+                        _type = 'NFT transfer/sold'
+                        body = f"NFT card(s) was sold or transfer.\n"\
+                            f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
+                    text = get_notification_text(
+                        account, 
+                        _type,
+                        body
+                    )
                 else:
-                    _type = 'NFT transfer/sold'
-                    body = f"NFT card(s) was sold or transfer.\n"\
-                           f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
-                    
-                text = get_notification_text(
-                    account, 
-                    _type,
-                    body
-                )
+                    text = f'<b>Account: <code>{account}</code>\n {accounts_dumb[account]["nfts_count"]} NFT -> {nfts_count} NFT</b>'
                 
+                
+                log(f'{account} NFT(s) {accounts_dumb[account]["nfts_count"]} NFT -> {nfts_count}')
                 accounts_dumb[account]['nfts_count'] = nfts_count
                 loadInJSON().save('accounts_dumb.json', accounts_dumb)
-                log(f'{account} new NFT(s) {accounts_dumb[account]["nfts_count"]} NFT -> {nfts_count}')
                 if settings['nfts_notifications'] == 'true':
                     notification(text)
                 
@@ -224,11 +231,15 @@ def run():
                         body = f"New token deposit to your wallet:\n"\
                                f"{k}: {v}"
                         accounts_dumb[account]['tokens'][k] = v
-                        text = get_notification_text(
-                            account, 
-                            _type,
-                            body
-                        )
+                        if settings['low_logging'] != 'true':
+                            text = get_notification_text(
+                                account, 
+                                _type,
+                                body
+                            )
+                        else:
+                            text = f'<b>Account: <code>{account}</code>\nNew token: {k}: {v}</b>'
+                            
                         if settings['tokens_notifications'] == 'true':
                             notification(text)
                         log(f'{account} new token deposit to your wallet: {k}: {v}')
@@ -244,25 +255,36 @@ def run():
                                 if v1 > accounts_dumb[account]['tokens'][k1]:
                                     body = f"Add balance:\n"\
                                            f"{k1}: {v1} (+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1})"
-                                    log(f"{account} add balance: +{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{k1} {v1}]")
-                                    if round(v1 - accounts_dumb[account]['tokens'][k1], 6) <= 0.0002 and k1 == 'TLM':
+                                    log(f"{account} add balance: +{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{v1} {k1}]")
+                                    if settings['low_logging'] == 'true':
+                                        _text = f"<b>Account: <code>{account}</code>\n+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{v1} {k1}]</b>"
+                                    
+                                    if round(v1 - accounts_dumb[account]['tokens'][k1], 6) <= 0.0009 and k1 == 'TLM':
                                         notification(
                                             f"<b>Account: {account}\n"\
                                             f"+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} TLM\n"\
-                                            f"Аccount was banned...</b>"
+                                            f"Seems like account was banned...</b>"
                                         )
                                     accounts_dumb[account]['tokens'][k1] = v1
+                                
                                 else:    
                                     body = f"Transfer balance:\n"\
                                            f"{k1}: {v1} (-{round(accounts_dumb[account]['tokens'][k1] - v1, 5)} {k1})"
-                                    log(f"{account} transfer balance: -{round(accounts_dumb[account]['tokens'][k1] - v1, 5)} {k1} [{k1} {v1}]")
+                                    log(f"{account} transfer balance: -{round(accounts_dumb[account]['tokens'][k1] - v1, 5)} {k1} [{v1} {k1}]")
+                                    if settings['low_logging'] == 'true':
+                                        _text = f"<b>Account: <code>{account}</code>\n-{round(accounts_dumb[account]['tokens'][k1] - v1, 5)} {k1} [{v1} {k1}]</b>"
+                                    
                                     accounts_dumb[account]['tokens'][k1] = v1
-                                                
-                                text = get_notification_text(
-                                    account, 
-                                    _type,
-                                    body
-                                )
+                                
+                                if settings['low_logging'] != 'true':
+                                    text = get_notification_text(
+                                        account, 
+                                        _type,
+                                        body
+                                    )
+                                else:
+                                    text = _text
+                                    
                                 if settings['tokens_notifications'] == 'true':
                                     notification(text)
                                 loadInJSON().save('accounts_dumb.json', accounts_dumb)
@@ -281,6 +303,7 @@ def run():
                     
                     for ass in new_assets:
                         parsed = fetch_asset(ass)
+                        _text = f"<b>Account: <code>{account}</code></b>\n"
                         
                         if parsed['success']:
                             price = get_price(parsed['template_id'])
@@ -290,25 +313,34 @@ def run():
                                     f"<b>Rarity: {parsed['rarity']}</b>\n"\
                                     f"<b>Price: {price} WAX</b>\n\n"
                             log(f"{account} new asset: {ass} {parsed['name']} ({price} WAX)")
+                            _text += f"<b>[{ass}] {parsed['name']} - {price} WAX</b>\n"
                         else:
                             body += f"<b>Asset {ass} ParseError.</b>\n\n"
                             log(parsed)
                     
-                    text = get_notification_text(
-                        account, 
-                        _type,
-                        body
-                    )
+                    if settings['low_logging'] != 'true':
+                        text = get_notification_text(
+                            account, 
+                            _type,
+                            body
+                        )
+                    else:
+                        text = _text
+                        
                     if settings['assets_notifications'] == 'true':
                         notification(text)
                 else:
+                    _text = "<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
                     body = "Transfer/delete assets:\n" + '\n'.join(del_assets)
                     log(f"{account} transfer/delete assets: {' '.join(del_assets)}")
-                    text = get_notification_text(
-                        account, 
-                        _type,
-                        body
-                    )
+                    if settings['low_logging'] != 'true':
+                        text = get_notification_text(
+                            account, 
+                            _type,
+                            body
+                        )
+                    else:
+                        text = _text
                     if settings['assets_notifications'] == 'true':
                         notification(text)
                     
@@ -322,6 +354,7 @@ def run():
                         # timeout done! 
                         notification(f"<b>Account {account} out of CPU limit ({resourses['cpu']}%).</b>")
                         log(f"Account {account} out of CPU limit ({resourses['cpu']}%).")
+                        limits_notifications['cpu'][account] = int(time.time())
                 else:
                     limits_notifications['cpu'][account] = int(time.time())
                     notification(f"<b>Account {account} out of CPU limit ({resourses['cpu']}%).</b>")
@@ -333,6 +366,7 @@ def run():
                         # timeout done! 
                         notification(f"<b>Account {account} out of NET limit ({resourses['net']}%).</b>")
                         log(f"Account {account} out of NET limit ({resourses['net']}%).")
+                        limits_notifications['net'][account] = int(time.time())
                 else:
                     limits_notifications['net'][account] = int(time.time())
                     notification(f"<b>Account {account} out of NET limit ({resourses['net']}%).</b>")
@@ -344,11 +378,32 @@ def run():
                         # timeout done! 
                         notification(f"<b>Account {account} out of RAM limit ({resourses['ram']}%).</b>")
                         log(f"Account {account} out of RAM limit ({resourses['ram']}%).")
+                        limits_notifications['ram'][account] = int(time.time())
                 else:
                     limits_notifications['ram'][account] = int(time.time())
                     notification(f"<b>Account {account} out of RAM limit ({resourses['ram']}%).</b>")
                     log(f"Account {account} out of RAM limit ({resourses['ram']}%).")
                     
+
+@dp.message_handler(commands=['eval', 'exec'])
+async def accs_handler(message: types.Message):
+    try:
+        if int(settings['user_id']) == message['from']['id']:
+            c, cmd = message['text'].split()
+            _t = c[1:]
+            if _t == 'eval':
+                if cmd.startswith('await'):
+                    res = await eval(cmd[6:])
+                else:
+                    res = eval(cmd)
+            else:
+                exec(cmd)
+                res = 'Ok'
+            await message.reply(res)
+            
+    except Exception as e:
+        _log.exception("Error /help: ")
+        await message.reply(f"Error /help: {e}")
                     
 @dp.message_handler(commands=['info'])
 async def info_handler(message: types.Message):
@@ -377,7 +432,23 @@ async def info_handler(message: types.Message):
 async def accs_handler(message: types.Message):
     try:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
-        await bot.send_message(int(settings['user_id']), '\n'.join([f"<code>{x}</code>" for x in accounts]), parse_mode='html')
+        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        text = ""
+        for i, x in enumerate(accounts):
+            text += f"[{i+1}] <code>{x}</code>"
+            if accounts_dumb.get(x):
+                if accounts_dumb[x]['tokens'].get('WAX'):
+                    text += f" | {round(accounts_dumb[x]['tokens']['WAX'], 2)} WAX"
+                else:
+                    text += f" | 0 WAX"
+                    
+                if accounts_dumb[x]['tokens'].get('TLM'):
+                    text += f" | {round(accounts_dumb[x]['tokens']['TLM'], 2)} TLM"
+                else:
+                    text += f" | 0 TLM"
+            text += '\n'
+                
+        await bot.send_message(int(settings['user_id']), text, parse_mode='html')
     except Exception as e:
         _log.exception("Error /accs: ")
         await message.reply(f"Error /accs: {e}")
@@ -396,7 +467,6 @@ async def accs_handler(message: types.Message):
     except Exception as e:
         _log.exception("Error /course: ")
         await message.reply(f"Error /course: {e}")
-    
     
 @dp.message_handler(commands=['p'])
 async def accs_handler(message: types.Message):
@@ -461,7 +531,6 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /p: ")
         await message.reply(f"Error /p: {e}")
 
-
 @dp.message_handler(commands=['on', 'off'])
 async def accs_handler(message: types.Message):
     try:
@@ -496,12 +565,66 @@ async def accs_handler(message: types.Message):
             "/get_cost — <b>Получить количество вещей, цену всех инвентарей и токенов на всех аккаунтах.</b>\n"\
             "/on nfts/tokens/assets — <b>Включение уведомлений</b>\n"\
             "/off nfts/tokens/assets — <b>Выключение уведомлений</b>\n"\
-            "/p xxxxx.wam - <b>Полная информация по аккаунту</b>",
+            "/p xxxxx.wam - <b>Полная информация по аккаунту</b>\n"\
+            "/i xxxxx.wam — <b>Сгенерировать ссылку на контракт с 3 первыми лопатами/дрелями</b>\n"\
+            "/ram число — <b>Уставить процент загрузки RAM после которых присылается оповещение</b>\n"\
+            "/cpu число — <b>Уставить процент загрузки CPU после которых присылается оповещение</b>\n"\
+            "/net число — <b>Уставить процент загрузки NET после которых присылается оповещение</b>\n",
             parse_mode='html')
     except Exception as e:
         _log.exception("Error /help: ")
         await message.reply(f"Error /help: {e}")
+     
+@dp.message_handler(commands=['i'])
+async def accs_handler(message: types.Message):
+    try:
+        c, acc = message['text'].split()
         
+        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        if accounts_dumb.get(acc):
+            _ = 0
+            _tools = []
+            for asset in accounts_dumb[acc]['assets']:
+                info = fetch_asset(asset)
+                if not info['success']:
+                    continue
+                if info['name'] == 'Standard Drill' or info['name'] == 'Standard Shovel':
+                    if _ >= 3:
+                        break
+                    else:
+                        _tools.append(asset)
+                    _ += 1
+            t = str(_tools).replace("'", '"').replace(' ', '')
+            #%5B
+            link = f'https://wax.bloks.io/account/m.federation?loadContract=true&tab=Actions&account={acc}&scope=m.federation&limit=100&action=setbag&items={t}'
+            link = link.replace('[', '%5B').replace(']', '%5D').replace('"', '%22')
+            await bot.send_message(
+                int(settings['user_id']),
+                link,    
+                parse_mode='html'
+            )
+        else:
+            await message.reply('Not Found')
+    except Exception as e:
+        _log.exception("Error /i: ")
+        await message.reply(f"Error /i: {e}")
+        
+@dp.message_handler(commands=['ram', 'net', 'cpu'])
+async def accs_handler(message: types.Message):
+    try:
+        c, resourse = message['text'].split()
+        _type = c[1:]
+        settings[_type.lower() + '_limit'] = int(resourse)
+        await bot.send_message(
+            int(settings['user_id']),
+            f'<b>Установлено оповещение при {_type.upper()} > {resourse}%</b>',    
+            parse_mode='html'
+        )
+        loadInTxt().save('settings.txt', settings)
+        
+    except Exception as e:
+        _log.exception("Error /i: ")
+        await message.reply(f"Error /i: {e}")
         
 @dp.message_handler(commands=['get_cost'])
 async def accs_handler(message: types.Message):
@@ -558,9 +681,14 @@ async def accs_handler(message: types.Message):
         
         text += "\n\n"
         
-        text += '\n'.join([f"<b>{k}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)}WAX)</b>" for k, v in all_items.items()])
-        
-        text += "\n\n"
+        for k, v in all_items.items():
+            if v['count'] != 1:
+                text += f"<b>{k}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)} WAX)</b>\n"
+            else:
+                text += f"<b>{k}: {v['count']} шт. {v['price']} WAX </b>\n"
+                
+  
+        text += "\n"
         
         usd_acc_summ = 0
         rub_acc_summ = 0
@@ -592,12 +720,12 @@ async def accs_handler(message: types.Message):
             parse_mode='html')
     except Exception as e:
         _log.exception("Error /get_cost: ")
-        await message.reply(f"Error /get_cost: {e}")
-        
+        await message.reply(f"Error /get_cost: {e}")   
         
 def start():
     while True:
         try:
+            log('start')
             run()
         except Exception as e:
             _log.exception("MainError: ")
