@@ -4,6 +4,6 @@
 
 Группа ВК | VK Group: https://vk.com/lowbank.trade
 
-Как установить | How to install: https://vk.com/@lowbank.trade-kak-postavit-parser-wax?ref=group_block
+Гайд | Guide: https://telegra.ph/WAXParser-04-24
 
-Последние изменения | Last Update Info: https://telegra.ph/Obnovlenie-WAXParser-04-22
+Последние изменения | Last Update Info: https://telegra.ph/2604Changelog-WAXParser-04-25
