@@ -44,6 +44,19 @@ limits_notifications = {
     'ram': {}
 }
 
+ass_headers = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "max-age=0",
+    "Connection": "keep-alive",
+    "DNT": "1",
+    "Host": "wax.api.atomicassets.io",
+    "If-Modified-Since": "Mon, 26 Apr 2021 22:58:18 GMT",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
+}
+
 def fetch_asset(asset_id: str):
     assets_dump = loadInJSON(clear_empty=True, separate=False).get('assets_dump.json')
     if str(asset_id) in assets_dump.keys():
@@ -52,9 +65,10 @@ def fetch_asset(asset_id: str):
         info = None
         for _ in range(3):
             try:
-                asset_response = s.get(f"{ASSETS_URL}{asset_id}").json()
+                asset_response = s.get(f"{ASSETS_URL}{asset_id}", headers=ass_headers).json()
                 break
             except:
+                time.sleep(1)
                 continue
         else:
             info = {
@@ -133,7 +147,11 @@ def get_links(name: str) -> tuple:
         TOKENS_URL.replace('{account}', name),
         NFTS_URL.replace('{account}', name)
     )
+
+def get_account_info(name: str):
+    lk1, lk2 = get_links(name)
     
+
 log('Start!')
 settings = loadInTxt().get('settings.txt')
 
@@ -153,6 +171,25 @@ async def send_welcome(text):
 
 
 s = requests.Session()
+s.headers.update(
+    {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Connection': 'keep-alive',
+        'DNT': '1',
+        'Host': 'www.api.bloks.io',
+        'Origin': 'https://wax.bloks.io',
+        'Referer': 'https://wax.bloks.io/',
+        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"',
+        'sec-ch-ua-mobile': '?0',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site'
+    }
+)
+
 notification(
     f"<b>nfts_notifications: {settings['nfts_notifications']}\n"
     f"tokens_notifications: {settings['tokens_notifications']}\n"
@@ -173,16 +210,16 @@ def run():
             
             token, nft = get_links(account)
             try:
-                tokens_response = s.get(token).json()
-                nfts_response = s.get(nft).json()
-            except:
+                tokens_response = s.get(token, timeout=60)
+                tokens_response = tokens_response.json()
+                nfts_response = s.get(nft, timeout=60).json()
+            except Exception as e:
                 log("Ошибка: api.bloks.io недоступен. Повторяю попытку подключения...")
                 continue
             _p = wax_token_payload.copy()
             _p['account'] = account
             try:
                 wax_balance = s.post(WAX_TOKEN_URL, json=_p).json()
-                log(wax_balance)
             except:
                 continue
             
@@ -301,9 +338,9 @@ def run():
                     
                     body += "\n\n"
                     
+                    _text = f"<b>Account: <code>{account}</code></b>\n"
                     for ass in new_assets:
                         parsed = fetch_asset(ass)
-                        _text = f"<b>Account: <code>{account}</code></b>\n"
                         
                         if parsed['success']:
                             price = get_price(parsed['template_id'])
@@ -316,6 +353,7 @@ def run():
                             _text += f"<b>[{ass}] {parsed['name']} - {price} WAX</b>\n"
                         else:
                             body += f"<b>Asset {ass} ParseError.</b>\n\n"
+                            _text += f"<b>Asset {ass} ParseError.</b>\n\n"
                             log(parsed)
                     
                     if settings['low_logging'] != 'true':
@@ -330,7 +368,7 @@ def run():
                     if settings['assets_notifications'] == 'true':
                         notification(text)
                 else:
-                    _text = "<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
+                    _text = f"<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
                     body = "Transfer/delete assets:\n" + '\n'.join(del_assets)
                     log(f"{account} transfer/delete assets: {' '.join(del_assets)}")
                     if settings['low_logging'] != 'true':
@@ -589,7 +627,7 @@ async def accs_handler(message: types.Message):
                 if not info['success']:
                     continue
                 if info['name'] == 'Standard Drill' or info['name'] == 'Standard Shovel':
-                    if _ >= 3:
+                    if _ >= 96:
                         break
                     else:
                         _tools.append(asset)
