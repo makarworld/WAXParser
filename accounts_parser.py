@@ -239,12 +239,11 @@ def run():
             token, nft = get_links(account)
             try:
                 tokens_response = s.get(token, timeout=10).json()
-                print(1)
                 time.sleep(10)
                 nfts_response = s.get(nft, timeout=10).json()
-                print(2)
             except Exception as e:
                 log("Ошибка: api.bloks.io недоступен. Повторяю попытку подключения...")
+                _log.exception("GetInfoError:")
                 continue
             _p = wax_token_payload.copy()
             _p['account'] = account
@@ -365,7 +364,7 @@ def run():
                         
                     if settings['assets_notifications'] == 'true':
                         notification(text)
-                else:
+                elif del_assets:
                     _text = f"<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
                     body = "Transfer/delete assets:\n" + '\n'.join(del_assets)
                     log(f"{account} transfer/delete assets: {' '.join(del_assets)}")
