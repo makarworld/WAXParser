@@ -14,7 +14,7 @@ log = log_handler(_log).log
 WAX_TOKEN_URL = "https://wax.greymass.com/v1/chain/get_currency_balance"
 wax_token_payload = {'code': "eosio.token", 'account': "", 'symbol': "WAX"}
 TOKENS_URL = "https://www.api.bloks.io/wax/account/{account}?type=getAccountTokens&coreSymbol=WAX"
-NFTS_URL = "https://www.api.bloks.io/wax/nft?type=getAllNftsForAccount&network=wax&account={account}"
+NFTS_URL = "https://wax.api.atomicassets.io/atomicassets/v1/assets?owner={account}&page=1&limit=100000&order=desc&sort=asset_id"
 WAX_LINK = "https://wax.bloks.io/account/"
 ATOMIC = "https://wax.atomichub.io/profile/"
 ASSETS_URL = "https://wax.api.atomicassets.io/atomicassets/v1/assets/"
@@ -52,7 +52,6 @@ ass_headers = {
     "Connection": "keep-alive",
     "DNT": "1",
     "Host": "wax.api.atomicassets.io",
-    "If-Modified-Since": "Mon, 26 Apr 2021 22:58:18 GMT",
     "Upgrade-Insecure-Requests": "1",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
 }
@@ -80,7 +79,39 @@ def fetch_asset(asset_id: str):
         loadInJSON().save('assets_dump.json', assets_dump)
         
         return info
-    
+
+def get_assets(nft_response):
+    assets_dump = loadInJSON(clear_empty=True, separate=False).get('assets_dump.json')
+    res = {}
+    for ass in nft_response['data']:
+        info = None
+        asset_id = ass['asset_id']
+        contract = ass.get('contract')
+        collection = ass.get('collection')
+        collection_name = collection.get('name') if collection else None
+        item_name = ass.get('name')
+        
+        rarity = ass.get('data').get('rarity') if collection_name == 'Alien Worlds' else None
+        template = ass.get('template')
+        if template:
+            template = template['template_id'] if template.get('template_id') != None else None
+        
+        info = {
+            'contract': contract,
+            'collection_name': collection_name,
+            'template_id': template,
+            'name': item_name,
+            'rarity': rarity
+        }
+        res[asset_id] = info
+
+
+        assets_dump[str(asset_id)] = info
+        loadInJSON().save('assets_dump.json', assets_dump)
+        
+    return res
+
+
 
 def get_token_price(url=GET_WAX_PRICE):
     response = requests.get(url)
@@ -179,9 +210,6 @@ s.headers.update(
         'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
         'Connection': 'keep-alive',
         'DNT': '1',
-        'Host': 'www.api.bloks.io',
-        'Origin': 'https://wax.bloks.io',
-        'Referer': 'https://wax.bloks.io/',
         'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"',
         'sec-ch-ua-mobile': '?0',
         'Sec-Fetch-Dest': 'empty',
@@ -210,9 +238,11 @@ def run():
             
             token, nft = get_links(account)
             try:
-                tokens_response = s.get(token, timeout=60)
-                tokens_response = tokens_response.json()
-                nfts_response = s.get(nft, timeout=60).json()
+                tokens_response = s.get(token, timeout=10).json()
+                print(1)
+                time.sleep(10)
+                nfts_response = s.get(nft, timeout=10).json()
+                print(2)
             except Exception as e:
                 log("Ошибка: api.bloks.io недоступен. Повторяю попытку подключения...")
                 continue
@@ -229,35 +259,8 @@ def run():
                 wax_balance = float(wax_balance[0][:-4])
                 tokens['WAX'] = wax_balance
             
-            assets = [x.get('primary_key') for x in nfts_response if x.get('primary_key') is not None]
-            nfts_count = len(nfts_response)
+            assets = get_assets(nfts_response)
 
-            if nfts_count != accounts_dumb[account]['nfts_count']:
-                # nfts_count changed
-                if settings['low_logging'] != 'true':
-                    if nfts_count > accounts_dumb[account]['nfts_count']:
-                        _type = 'new NFT'
-                        body = f"New NFT card(s) in your inventory.\n"\
-                            f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
-                    else:
-                        _type = 'NFT transfer/sold'
-                        body = f"NFT card(s) was sold or transfer.\n"\
-                            f"{accounts_dumb[account]['nfts_count']} NFT -> {nfts_count} NFT"
-                    text = get_notification_text(
-                        account, 
-                        _type,
-                        body
-                    )
-                else:
-                    text = f'<b>Account: <code>{account}</code>\n {accounts_dumb[account]["nfts_count"]} NFT -> {nfts_count} NFT</b>'
-                
-                
-                log(f'{account} NFT(s) {accounts_dumb[account]["nfts_count"]} NFT -> {nfts_count}')
-                accounts_dumb[account]['nfts_count'] = nfts_count
-                loadInJSON().save('accounts_dumb.json', accounts_dumb)
-                if settings['nfts_notifications'] == 'true':
-                    notification(text)
-                
             if tokens != accounts_dumb[account]['tokens']:
                 # add new token or balance changed
                 _a_ = False
@@ -330,8 +333,8 @@ def run():
             if assets != accounts_dumb[account]['assets']:
                 # add or delete assets
                 _type = "change assets"
-                new_assets = [str(x) for x in assets if x not in accounts_dumb[account]['assets']]
-                del_assets = [str(x) for x in accounts_dumb[account]['assets'] if x not in assets]
+                new_assets = [str(x['asset_id']) for x in assets.keys() if x not in accounts_dumb[account]['assets']]
+                del_assets = [str(x['asset_id']) for x in accounts_dumb[account]['assets'] if x not in list(assets.keys())]
                 
                 if new_assets:
                     body = "Add assets:\n" + '\n'.join(new_assets)
@@ -341,20 +344,15 @@ def run():
                     _text = f"<b>Account: <code>{account}</code></b>\n"
                     for ass in new_assets:
                         parsed = fetch_asset(ass)
-                        
-                        if parsed['success']:
-                            price = get_price(parsed['template_id'])
-                            body += f"<b>Asset: {ass}</b>\n"\
-                                    f"<b>Collection name: {parsed['collection_name']}</b>\n"\
-                                    f"<b>Name: {parsed['name']}</b>\n"\
-                                    f"<b>Rarity: {parsed['rarity']}</b>\n"\
-                                    f"<b>Price: {price} WAX</b>\n\n"
-                            log(f"{account} new asset: {ass} {parsed['name']} ({price} WAX)")
-                            _text += f"<b>[{ass}] {parsed['name']} - {price} WAX</b>\n"
-                        else:
-                            body += f"<b>Asset {ass} ParseError.</b>\n\n"
-                            _text += f"<b>Asset {ass} ParseError.</b>\n\n"
-                            log(parsed)
+                        price = get_price(parsed['template_id'])
+                        body += f"<b>Asset: {ass}</b>\n"\
+                                f"<b>Collection name: {parsed['collection_name']}</b>\n"\
+                                f"<b>Name: {parsed['name']}</b>\n"\
+                                f"<b>Rarity: {parsed['rarity']}</b>\n"\
+                                f"<b>Price: {price} WAX</b>\n\n"
+                        log(f"{account} new asset: {ass} {parsed['name']} ({price} WAX)")
+                        _text += f"<b>[{ass}] {parsed['name']} - {price} WAX</b>\n"
+
                     
                     if settings['low_logging'] != 'true':
                         text = get_notification_text(
