@@ -121,7 +121,14 @@ def get_token_price(url=GET_WAX_PRICE):
 def get_price(template: str) -> float:
     params = get_price_params.copy()
     params['template_id'] = template
-    response = requests.get(GET_PRICE_URL, params=params).json()
+    while True:
+        try:
+            response = requests.get(GET_PRICE_URL, params=params).json()
+            break
+        except:
+            _log.info("Error with get item price...")
+            time.sleep(5)
+        
     if response.get('data'):
         return round(int(response['data'][0]["listing_price"]) / 100000000, 2)
     else:
@@ -237,14 +244,24 @@ def run():
                 loadInJSON().save('accounts_dumb.json', accounts_dumb)
             
             token, nft = get_links(account)
-            try:
-                tokens_response = s.get(token, timeout=10).json()
-                time.sleep(10)
-                nfts_response = s.get(nft, timeout=10).json()
-            except Exception as e:
-                log("Ошибка: api.bloks.io недоступен. Повторяю попытку подключения...")
-                _log.exception("GetInfoError:")
-                continue
+            tokens_response = None
+            while not tokens_response:
+                try:
+                    tokens_response = s.get(token, timeout=10).json()
+                    time.sleep(5)
+                except Exception as e:
+                    _log.exception("GetTokensError: ")
+                    continue
+                
+            nfts_response = None
+            while not nfts_response:
+                try:
+                    nfts_response = s.get(nft, timeout=10).json()
+                    time.sleep(5)
+                except Exception as e:
+                    _log.exception("GetNFTsError: ")
+                    continue
+                
             _p = wax_token_payload.copy()
             _p['account'] = account
             try:
@@ -332,8 +349,8 @@ def run():
             if assets != accounts_dumb[account]['assets']:
                 # add or delete assets
                 _type = "change assets"
-                new_assets = [str(x['asset_id']) for x in assets.keys() if str(x['asset_id']) not in accounts_dumb[account]['assets']]
-                del_assets = [str(x['asset_id']) for x in accounts_dumb[account]['assets'] if str(x['asset_id']) not in list(assets.keys())]
+                new_assets = [str(x) for x in assets.keys() if str(x) not in accounts_dumb[account]['assets']]
+                del_assets = [str(x) for x in accounts_dumb[account]['assets'] if str(x) not in list(assets.keys())]
                 
                 if new_assets:
                     body = "Add assets:\n" + '\n'.join(new_assets)
