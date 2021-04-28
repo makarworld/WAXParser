@@ -332,8 +332,8 @@ def run():
             if assets != accounts_dumb[account]['assets']:
                 # add or delete assets
                 _type = "change assets"
-                new_assets = [str(x['asset_id']) for x in assets.keys() if x not in accounts_dumb[account]['assets']]
-                del_assets = [str(x['asset_id']) for x in accounts_dumb[account]['assets'] if x not in list(assets.keys())]
+                new_assets = [str(x['asset_id']) for x in assets.keys() if str(x['asset_id']) not in accounts_dumb[account]['assets']]
+                del_assets = [str(x['asset_id']) for x in accounts_dumb[account]['assets'] if str(x['asset_id']) not in list(assets.keys())]
                 
                 if new_assets:
                     body = "Add assets:\n" + '\n'.join(new_assets)
@@ -543,11 +543,11 @@ async def accs_handler(message: types.Message):
                 
                 for ass in accounts_dumb[name]['assets']:
                     parsed = fetch_asset(ass)
-                    if parsed['success']:
-                        if parsed['name'] not in ass_names.keys():
-                            ass_names[parsed['name']] = {'count': 1, 'info': parsed}
-                        else:
-                            ass_names[parsed['name']]['count'] += 1
+
+                    if parsed['name'] not in ass_names.keys():
+                        ass_names[parsed['name']] = {'count': 1, 'info': parsed}
+                    else:
+                        ass_names[parsed['name']]['count'] += 1
                 
                 for x, y in ass_names.items():
                     price = get_price( y['info']['template_id'] )
@@ -621,8 +621,6 @@ async def accs_handler(message: types.Message):
             _tools = []
             for asset in accounts_dumb[acc]['assets']:
                 info = fetch_asset(asset)
-                if not info['success']:
-                    continue
                 if info['name'] == 'Standard Drill' or info['name'] == 'Standard Shovel':
                     if _ >= 96:
                         break
@@ -676,9 +674,7 @@ async def accs_handler(message: types.Message):
         for k, v in accounts_dumb.items():
             for asset in v['assets']:
                 parsed = fetch_asset(asset)
-                if not parsed['success']:
-                    continue
-                
+
                 if all_items.get(parsed['name']):
                     all_items[parsed['name']]['count'] += 1
                 else:
