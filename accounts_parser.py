@@ -251,7 +251,6 @@ def run():
             
             token, nft = get_links(account)
 
-            tokens = None
             _isretry = False
             for _ in range(3):
                 try:
@@ -266,7 +265,7 @@ def run():
                     _isretry = True
                     continue
             else:
-                tokens = accounts_dumb[account]['tokens']
+                tokens_response = {'tokens': [{'currency': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
                 
             _isretry = False
             for _ in range(3):
@@ -291,8 +290,8 @@ def run():
             except:
                 continue
             
-            if not tokens:
-                tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
+            
+            tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
             #tokens = {'WAX': 0}
             if wax_balance:
                 wax_balance = float(wax_balance[0][:-4])
@@ -430,7 +429,7 @@ def run():
                     if settings['assets_notifications'] == 'true':
                         notification(text)
                 
-                base.edit_by('accounts', ['name', account], assets=list(assets.keys()))
+                base.edit_by('accounts', ['name', account], assets=list(assets))
             
             # check account resourses
             resourses = get_resourses(account)
