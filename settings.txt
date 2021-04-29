@@ -1,11 +1,10 @@
 user_id: 
 bot_token: 
-timeout: 2
-nfts_notifications: false
-tokens_notifications: false
+timeout: 0
+tokens_notifications: true
 assets_notifications: true
-cpu_limit: 90
-net_limit: 90
-ram_limit: 90
+cpu_limit: 1000
+net_limit: 1000
+ram_limit: 1000
 out_of_limit_timeout: 3600
 low_logging: true
