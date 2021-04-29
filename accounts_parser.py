@@ -547,8 +547,7 @@ async def p_handler(message: types.Message):
                 account_summ_usd = 0
                 account_summ_rub = 0
                 text = f"<b>Account: {name}</b>\n"\
-                       f"<b>NFTs: {accounts_dumb[name]['nfts_count']}</b>\n"\
-                       f"<b>Assets: {len(accounts_dumb[name]['assets'])}</b>\n"\
+                       f"<b>NFTs: {len(accounts_dumb[name]['assets'])}</b>\n"\
                        f"<b>Tokens:</b>\n"
                 
                 tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
