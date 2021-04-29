@@ -251,33 +251,38 @@ def run():
             
             token, nft = get_links(account)
 
-            tokens_response = None
+            tokens = None
             _isretry = False
-            while not tokens_response:
+            for _ in range(3):
                 try:
                     tokens_response = s.get(token, timeout=10)
                     tokens_response = tokens_response.json()
                     if _isretry:
                         log("Подключение восстановлено!")
+                    break
                 except Exception as e:
-                    log(f"GetTokensError: {e}")
+                    log(f"[{_+1}]GetTokensError: {e}")
                     time.sleep(5)
                     _isretry = True
                     continue
+            else:
+                tokens = accounts_dumb[account]['tokens']
                 
-            nfts_response = None
             _isretry = False
-            while not nfts_response:
+            for _ in range(3):
                 try:
                     nfts_response = requests.get(nft, proxies=_proxy, timeout=10)
                     nfts_response = nfts_response.json()
                     if _isretry:
                         log("Подключение восстановлено!")
+                    break
                 except Exception as e:
-                    log(f"GetNFTsError: {e}")
+                    log(f"[{_+1}]GetNFTsError: {e}")
                     time.sleep(5)
                     _isretry = True
                     continue
+            else:
+                nfts_response = accounts_dumb[account]['assets']
                 
             _p = Payload.wax_token_payload.copy()
             _p['account'] = account
@@ -286,14 +291,17 @@ def run():
             except:
                 continue
             
-            
-            tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
+            if not tokens:
+                tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
             #tokens = {'WAX': 0}
             if wax_balance:
                 wax_balance = float(wax_balance[0][:-4])
                 tokens['WAX'] = wax_balance
             
-            assets = get_assets(nfts_response)
+            if type(nfts_response) is not list:
+                assets = list(get_assets(nfts_response).keys())
+            else:
+                assets = nfts_response
 
             # check tokens
             if tokens != accounts_dumb[account]['tokens']:
@@ -370,8 +378,8 @@ def run():
             if assets != accounts_dumb[account]['assets']:
                 # add or delete assets
                 _type = "change assets"
-                new_assets = [str(x) for x in assets.keys() if str(x) not in list(accounts_dumb[account]['assets'])]
-                del_assets = [str(x) for x in accounts_dumb[account]['assets'] if str(x) not in list(assets.keys())]
+                new_assets = [str(x) for x in assets if str(x) not in accounts_dumb[account]['assets']]
+                del_assets = [str(x) for x in accounts_dumb[account]['assets'] if str(x) not in assets]
                 
                 if new_assets:
                     body = "Add assets:\n" + '\n'.join(new_assets)
