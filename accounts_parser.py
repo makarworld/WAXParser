@@ -7,64 +7,39 @@ import time
 from load_data import loadInStrings, loadInJSON, loadInTxt
 from logger import log_handler, logger
 from copy import deepcopy
+import json
+
+from data import URL as _URL
+from data import Payload as _Payload
+from data import to_dict
+
+from mw_sql import baseUniversal
 
 _log = logger('WAXParser', 'WAXParser.log', 'INFO').get_logger()
 log = log_handler(_log).log
+base = baseUniversal('accounts.db')
 
-WAX_TOKEN_URL = "https://wax.greymass.com/v1/chain/get_currency_balance"
-wax_token_payload = {'code': "eosio.token", 'account': "", 'symbol': "WAX"}
-TOKENS_URL = "https://www.api.bloks.io/wax/account/{account}?type=getAccountTokens&coreSymbol=WAX"
-NFTS_URL = "https://wax.api.atomicassets.io/atomicassets/v1/assets?owner={account}&page=1&limit=100000&order=desc&sort=asset_id"
-WAX_LINK = "https://wax.bloks.io/account/"
-ATOMIC = "https://wax.atomichub.io/profile/"
-ASSETS_URL = "https://wax.api.atomicassets.io/atomicassets/v1/assets/"
-RESOURSES_URL = "https://wax.greymass.com/v1/chain/get_account"
-GET_PRICE_URL = "https://wax.api.atomicassets.io/atomicmarket/v1/sales"
-GET_WAX_PRICE = 'https://api.coingecko.com/api/v3/coins/wax'
-GET_TLM_PRICE = 'https://api.coingecko.com/api/v3/coins/alien-worlds'
-
-get_price_params = {
-    "state":"1",
-    "template_id": "",
-    "order": "asc",
-    "sort": "price",
-    "limit": "1",
-    "symbol": "WAX"
-}
-
-defoult_account_data = {
-    "nfts_count": 0,
-    "assets": [],
-    "tokens": {}
-}
-
-limits_notifications = {
-    'cpu': {},
-    'net': {},
-    'ram': {}
-}
-
-ass_headers = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Accept-Encoding": "gzip, deflate",
-    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Cache-Control": "max-age=0",
-    "Connection": "keep-alive",
-    "DNT": "1",
-    "Host": "wax.api.atomicassets.io",
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
-}
+URL = _URL()
+Payload = _Payload()
+limits_notifications = Payload.limits_notifications.copy()
 
 def fetch_asset(asset_id: str):
-    assets_dump = loadInJSON(clear_empty=True, separate=False).get('assets_dump.json')
-    if str(asset_id) in assets_dump.keys():
-        return assets_dump[str(asset_id)]
+    inbase = base.get_by("assets", get_by=['asset_id', asset_id], args='all')
+    if inbase:
+        return {
+            'success': True,
+            'asset_id': inbase[0]['asset_id'],
+            'name': inbase[0]['name'],
+            'rarity': inbase[0]['rarity'], 
+            'contract': inbase[0]['contract'],
+            'collection_name': inbase[0]['collection_name'],
+            'template_id': inbase[0]['template_id']
+        }
     else:
         info = None
         for _ in range(3):
             try:
-                asset_response = s.get(f"{ASSETS_URL}{asset_id}", headers=ass_headers).json()
+                asset_response = s.get(f"{URL.ASSETS}{asset_id}", headers=Payload.ass_headers).json()
                 break
             except:
                 time.sleep(1)
@@ -73,18 +48,25 @@ def fetch_asset(asset_id: str):
             info = {
                 'success': False
             }
+            
         if not info:
             info = get_asset_info(asset_response)
-        assets_dump[str(asset_id)] = info
-        loadInJSON().save('assets_dump.json', assets_dump)
+            if info['success']:
+                base.add(
+                    table='assets',
+                    asset_id=asset_id,
+                    name=info['name'],
+                    rarity=info['rarity'], 
+                    contract=info['contract'],
+                    collection_name=info['collection_name'],
+                    template_id=info['template_id']
+                )
         
         return info
 
 def get_assets(nft_response):
-    assets_dump = loadInJSON(clear_empty=True, separate=False).get('assets_dump.json')
     res = {}
     for ass in nft_response['data']:
-        info = None
         asset_id = ass['asset_id']
         contract = ass.get('contract')
         collection = ass.get('collection')
@@ -94,7 +76,7 @@ def get_assets(nft_response):
         rarity = ass.get('data').get('rarity') if collection_name == 'Alien Worlds' else None
         template = ass.get('template')
         if template:
-            template = template['template_id'] if template.get('template_id') != None else None
+            template = template['template_id'] if template.get('template_id') else None
         
         info = {
             'contract': contract,
@@ -105,28 +87,33 @@ def get_assets(nft_response):
         }
         res[asset_id] = info
 
-
-        assets_dump[str(asset_id)] = info
-        loadInJSON().save('assets_dump.json', assets_dump)
+        if not base.get_by("assets", get_by=['asset_id', asset_id], args='all'):
+            base.add(
+                table='assets',
+                asset_id=asset_id,
+                name=info['name'],
+                rarity=info['rarity'], 
+                contract=info['contract'],
+                collection_name=info['collection_name'],
+                template_id=info['template_id']
+            )
         
     return res
 
-
-
-def get_token_price(url=GET_WAX_PRICE):
+def get_token_price(url=URL.GET_WAX_PRICE):
     response = requests.get(url)
     response_json = response.json()
     return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
 
 def get_price(template: str) -> float:
-    params = get_price_params.copy()
+    params = Payload.get_price_params.copy()
     params['template_id'] = template
     while True:
         try:
-            response = requests.get(GET_PRICE_URL, params=params).json()
+            response = requests.get(URL.GET_PRICE, params=params).json()
             break
         except:
-            _log.info("Error with get item price...")
+            log("Error with get item price...")
             time.sleep(5)
         
     if response.get('data'):
@@ -163,7 +150,7 @@ def get_asset_info(asset_response):
         return {'success': False, 'response': asset_response}
 
 def get_resourses(name: str) -> dict:
-    response = requests.get(RESOURSES_URL, json={"account_name": name}).json()
+    response = requests.get(URL.RESOURSES, json={"account_name": name}).json()
     cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
     net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
     ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
@@ -177,20 +164,31 @@ def get_notification_text(name: str, _type: str, body: str):
     return f"<b>Account:</b> <code>{name}</code>\n"\
            f"<b>Event type: {_type}</b>\n"\
            f"<i>{body}</i>\n"\
-           f"<b>Link: {WAX_LINK}{name}</b>\n"\
-           f"<b>Atomic: {ATOMIC}{name}</b>"
+           f"<b>Link: {URL.WAX}{name}</b>\n"\
+           f"<b>Atomic: {URL.ATOMIC}{name}</b>"
 
 def get_links(name: str) -> tuple:
     return (
-        TOKENS_URL.replace('{account}', name),
-        NFTS_URL.replace('{account}', name)
+        URL.TOKENS.replace('{account}', name),
+        URL.NFTS.replace('{account}', name)
     )
 
-def get_account_info(name: str):
-    lk1, lk2 = get_links(name)
-    
+def get_accounts():
+    accounts_dumb = base.get_table('accounts')
+    accounts_dumb = [
+        {
+            x['name']: {
+                'assets': to_dict(x['assets']), 
+                'tokens': to_dict(x['tokens'])
+            }
+        for x in accounts_dumb
+        }
+    ]
+    if accounts_dumb:
+        return accounts_dumb[0]
+    else:
+        return accounts_dumb
 
-log('Start!')
 settings = loadInTxt().get('settings.txt')
 
 bot = Bot(token=settings['bot_token'])
@@ -199,7 +197,6 @@ zalupa = asyncio.new_event_loop()
 
 def notification(text):
     fut = asyncio.run_coroutine_threadsafe(send_welcome(text), zalupa)
-    print('Send notification')
 
 async def send_welcome(text):
     try:
@@ -209,74 +206,72 @@ async def send_welcome(text):
 
 
 s = requests.Session()
-s.headers.update(
-    {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Connection': 'keep-alive',
-        'DNT': '1',
-        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"',
-        'sec-ch-ua-mobile': '?0',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site'
-    }
-)
+s.headers.update(Payload.ass_headers)
 
 notification(
-    f"<b>nfts_notifications: {settings['nfts_notifications']}\n"
-    f"tokens_notifications: {settings['tokens_notifications']}\n"
-    f"assets_notifications: {settings['assets_notifications']}</b>"
+    f"<b>WAXParser started.\n"
+    f"Creator: <a href=\"https://vk.com/abuz.trade\">abuz.trade</a>\n"
+    f"GitHub: <a href=\"https://github.com/makarworld/WAXParser\">WAXParser</a>\n"
+    f"Tokens_notifications: {settings['tokens_notifications']}\n"
+    f"Assets_notifications: {settings['assets_notifications']}</b>"
 )
 
 def run():
     while True:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
-        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        accounts_dumb = get_accounts()
             
         for account in accounts:
             settings = loadInTxt().get('settings.txt')
             time.sleep(int(settings['timeout']))
             if account not in accounts_dumb.keys():
-                accounts_dumb[account] = deepcopy(defoult_account_data)
-                loadInJSON().save('accounts_dumb.json', accounts_dumb)
+                accounts_dumb[account] = deepcopy(Payload.defoult_account_data)
+                base.add(
+                    table='accounts',
+                    name=account,
+                    assets=[],
+                    tokens=accounts_dumb[account]['tokens']
+                )
             
             token, nft = get_links(account)
+
             tokens_response = None
             while not tokens_response:
                 try:
-                    tokens_response = s.get(token, timeout=10).json()
-                    time.sleep(5)
+                    tokens_response = s.get(token, timeout=10)
+                    tokens_response = tokens_response.json()
                 except Exception as e:
-                    _log.exception("GetTokensError: ")
+                    log(f"GetTokensError: {e}")
+                    time.sleep(5)
                     continue
                 
             nfts_response = None
             while not nfts_response:
                 try:
-                    nfts_response = s.get(nft, timeout=10).json()
-                    time.sleep(5)
+                    nfts_response = requests.get(nft, timeout=10)
+                    nfts_response = nfts_response.json()
                 except Exception as e:
-                    _log.exception("GetNFTsError: ")
+                    log(f"GetNFTsError: {e}")
+                    time.sleep(5)
                     continue
                 
-            _p = wax_token_payload.copy()
+            _p = Payload.wax_token_payload.copy()
             _p['account'] = account
             try:
-                wax_balance = s.post(WAX_TOKEN_URL, json=_p).json()
+                wax_balance = s.post(URL.WAX_TOKEN, json=_p).json()
             except:
                 continue
             
             
             tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
+            #tokens = {'WAX': 0}
             if wax_balance:
                 wax_balance = float(wax_balance[0][:-4])
                 tokens['WAX'] = wax_balance
             
             assets = get_assets(nfts_response)
 
+            # check tokens
             if tokens != accounts_dumb[account]['tokens']:
                 # add new token or balance changed
                 _a_ = False
@@ -299,7 +294,7 @@ def run():
                         if settings['tokens_notifications'] == 'true':
                             notification(text)
                         log(f'{account} new token deposit to your wallet: {k}: {v}')
-                        loadInJSON().save('accounts_dumb.json', accounts_dumb)
+                        base.edit_by('accounts', ['name', account], tokens=accounts_dumb[account]['tokens'])
                         _a_ = True
                     
                     
@@ -343,13 +338,15 @@ def run():
                                     
                                 if settings['tokens_notifications'] == 'true':
                                     notification(text)
-                                loadInJSON().save('accounts_dumb.json', accounts_dumb)
+                                    
+                                base.edit_by('accounts', ['name', account], tokens=accounts_dumb[account]['tokens'])
                     _a_ = True
-                    
+            
+            # check assets 
             if assets != accounts_dumb[account]['assets']:
                 # add or delete assets
                 _type = "change assets"
-                new_assets = [str(x) for x in assets.keys() if str(x) not in accounts_dumb[account]['assets']]
+                new_assets = [str(x) for x in assets.keys() if str(x) not in list(accounts_dumb[account]['assets'])]
                 del_assets = [str(x) for x in accounts_dumb[account]['assets'] if str(x) not in list(assets.keys())]
                 
                 if new_assets:
@@ -358,8 +355,11 @@ def run():
                     body += "\n\n"
                     
                     _text = f"<b>Account: <code>{account}</code></b>\n"
+                    _price_sum = 0
                     for ass in new_assets:
                         parsed = fetch_asset(ass)
+                        if not parsed['success']:
+                            continue
                         price = get_price(parsed['template_id'])
                         body += f"<b>Asset: {ass}</b>\n"\
                                 f"<b>Collection name: {parsed['collection_name']}</b>\n"\
@@ -368,7 +368,7 @@ def run():
                                 f"<b>Price: {price} WAX</b>\n\n"
                         log(f"{account} new asset: {ass} {parsed['name']} ({price} WAX)")
                         _text += f"<b>[{ass}] {parsed['name']} - {price} WAX</b>\n"
-
+                        _price_sum += price
                     
                     if settings['low_logging'] != 'true':
                         text = get_notification_text(
@@ -378,9 +378,11 @@ def run():
                         )
                     else:
                         text = _text
+                        text += f"\n<b>+{round(_price_sum, 2)} WAX</b>"
                         
                     if settings['assets_notifications'] == 'true':
                         notification(text)
+                        
                 elif del_assets:
                     _text = f"<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
                     body = "Transfer/delete assets:\n" + '\n'.join(del_assets)
@@ -395,50 +397,29 @@ def run():
                         text = _text
                     if settings['assets_notifications'] == 'true':
                         notification(text)
-                    
-                accounts_dumb[account]['assets'] = assets
-                loadInJSON().save('accounts_dumb.json', accounts_dumb)
                 
-            resourses = get_resourses(account)
-            if resourses['cpu'] > int(settings['cpu_limit']):
-                if limits_notifications['cpu'].get(account):
-                    if time.time() - limits_notifications['cpu'][account] >= int(settings['out_of_limit_timeout']):
-                        # timeout done! 
-                        notification(f"<b>Account {account} out of CPU limit ({resourses['cpu']}%).</b>")
-                        log(f"Account {account} out of CPU limit ({resourses['cpu']}%).")
-                        limits_notifications['cpu'][account] = int(time.time())
-                else:
-                    limits_notifications['cpu'][account] = int(time.time())
-                    notification(f"<b>Account {account} out of CPU limit ({resourses['cpu']}%).</b>")
-                    log(f"Account {account} out of CPU limit ({resourses['cpu']}%).")
-                    
-            if resourses['net'] > int(settings['net_limit']):
-                if limits_notifications['net'].get(account):
-                    if time.time() - limits_notifications['net'][account] >= int(settings['out_of_limit_timeout']):
-                        # timeout done! 
-                        notification(f"<b>Account {account} out of NET limit ({resourses['net']}%).</b>")
-                        log(f"Account {account} out of NET limit ({resourses['net']}%).")
-                        limits_notifications['net'][account] = int(time.time())
-                else:
-                    limits_notifications['net'][account] = int(time.time())
-                    notification(f"<b>Account {account} out of NET limit ({resourses['net']}%).</b>")
-                    log(f"Account {account} out of NET limit ({resourses['net']}%).")
+                base.edit_by('accounts', ['name', account], assets=list(assets.keys()))
             
-            if resourses['ram'] > int(settings['ram_limit']):
-                if limits_notifications['ram'].get(account):
-                    if time.time() - limits_notifications['ram'][account] >= int(settings['out_of_limit_timeout']):
-                        # timeout done! 
-                        notification(f"<b>Account {account} out of RAM limit ({resourses['ram']}%).</b>")
-                        log(f"Account {account} out of RAM limit ({resourses['ram']}%).")
-                        limits_notifications['ram'][account] = int(time.time())
-                else:
-                    limits_notifications['ram'][account] = int(time.time())
-                    notification(f"<b>Account {account} out of RAM limit ({resourses['ram']}%).</b>")
-                    log(f"Account {account} out of RAM limit ({resourses['ram']}%).")
-                    
+            # check account resourses
+            resourses = get_resourses(account)
+            for _res in resourses.keys():
+                if resourses[_res] > int(settings[_res+'_limit']):
+                    if limits_notifications[_res].get(account):
+                        if time.time() - limits_notifications[_res][account] >= int(settings['out_of_limit_timeout']):
+                            # timeout done! 
+                            notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
+                            log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
+                            limits_notifications[_res][account] = int(time.time())
+                    else:
+                        limits_notifications[_res][account] = int(time.time())
+                        notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
+                        log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
 
+                    
+# command /eval {some_code}
+# command /exec {some_code}
 @dp.message_handler(commands=['eval', 'exec'])
-async def accs_handler(message: types.Message):
+async def eval_handler(message: types.Message):
     try:
         if int(settings['user_id']) == message['from']['id']:
             c, cmd = message['text'].split()
@@ -456,13 +437,14 @@ async def accs_handler(message: types.Message):
     except Exception as e:
         _log.exception("Error /help: ")
         await message.reply(f"Error /help: {e}")
-                    
+    
+# command /info            
 @dp.message_handler(commands=['info'])
 async def info_handler(message: types.Message):
     try:
-        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        accounts_dumb = get_accounts()
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
-        nfts = sum([accounts_dumb[x]['nfts_count'] for x in accounts_dumb.keys()])
+        nfts = sum([len(accounts_dumb[x]['assets']) for x in accounts_dumb.keys()])
         text += f"<b>NFTs: {nfts}</b>\n"
         text += f"<b>Tokens:</b>\n"
         tokens = [accounts_dumb[x]['tokens'] for x in accounts_dumb]
@@ -480,11 +462,12 @@ async def info_handler(message: types.Message):
         _log.exception("Error /info: ")
         await message.reply(f"Error /info: {e}")
 
+# command /accs          
 @dp.message_handler(commands=['accs'])
 async def accs_handler(message: types.Message):
     try:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
-        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        accounts_dumb = get_accounts()
         text = ""
         for i, x in enumerate(accounts):
             text += f"[{i+1}] <code>{x}</code>"
@@ -505,29 +488,31 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /accs: ")
         await message.reply(f"Error /accs: {e}")
     
+# command /course        
 @dp.message_handler(commands=['course'])
-async def accs_handler(message: types.Message):
+async def course_handler(message: types.Message):
     try:
-        tlm_usd, tlm_rub = get_token_price(GET_TLM_PRICE)
-        wax_usd, wax_rub = get_token_price(GET_WAX_PRICE)
-        text = f"<b>WAX -> USD: {wax_usd}$</b>\n"\
-                f"<b>WAX -> RUB: {wax_rub} руб.</b>\n"
-        text += f"<b>TLM -> USD: {tlm_usd}$</b>\n"\
-                f"<b>TLM -> RUB: {tlm_rub} руб.</b>\n"
+        tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
+        wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
+        text = f"<b><a href=\"{URL.COINGECKO_WAX_PAGE}\">WAX</a> -> USD: {wax_usd}$</b>\n"\
+                f"<b><a href=\"{URL.COINGECKO_WAX_PAGE}\">WAX</a> -> RUB: {wax_rub} руб.</b>\n"
+        text += f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> USD: {tlm_usd}$</b>\n"\
+                f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> RUB: {tlm_rub} руб.</b>\n"
         
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html')
+        await bot.send_message(int(settings['user_id']), text, parse_mode='html', disable_web_page_preview=True)
     except Exception as e:
         _log.exception("Error /course: ")
         await message.reply(f"Error /course: {e}")
     
+# command /p {wax_name}    
 @dp.message_handler(commands=['p'])
-async def accs_handler(message: types.Message):
+async def p_handler(message: types.Message):
     try:
         if len(message["text"].split()) != 2: 
             await bot.send_message(int(settings['user_id']), "Неверная команда.\nПример: /p namee.wam")
         else:
             c, name = message["text"].split()
-            accounts_dumb = loadInJSON().get('accounts_dumb.json')
+            accounts_dumb = get_accounts()
             if name not in accounts_dumb.keys():
                 await bot.send_message(int(settings['user_id']), "Нет информации.")
             else:
@@ -539,8 +524,8 @@ async def accs_handler(message: types.Message):
                        f"<b>Assets: {len(accounts_dumb[name]['assets'])}</b>\n"\
                        f"<b>Tokens:</b>\n"
                 
-                tlm_usd, tlm_rub = get_token_price(GET_TLM_PRICE)
-                wax_usd, wax_rub = get_token_price(GET_WAX_PRICE)
+                tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
+                wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
                 for k, v in accounts_dumb[name]['tokens'].items():
                     if k == 'TLM':
                         text += f"<b>{k}: {round(v, 4)} ({round(v*tlm_usd, 2)}$) ({round(v*tlm_rub, 2)} руб.)</b>\n"
@@ -560,6 +545,8 @@ async def accs_handler(message: types.Message):
                 
                 for ass in accounts_dumb[name]['assets']:
                     parsed = fetch_asset(ass)
+                    if not parsed['success']:
+                        continue
 
                     if parsed['name'] not in ass_names.keys():
                         ass_names[parsed['name']] = {'count': 1, 'info': parsed}
@@ -583,8 +570,10 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /p: ")
         await message.reply(f"Error /p: {e}")
 
+# command /on {resourse}  
+# command /off {resourse}  
 @dp.message_handler(commands=['on', 'off'])
-async def accs_handler(message: types.Message):
+async def onoff_handler(message: types.Message):
     try:
         if len(message['text'].split()) != 2:
             if message['text'] == '/on':
@@ -605,8 +594,9 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /on | /off: ")
         await message.reply(f"Error /on | /off: {e}")
 
+# command /help
 @dp.message_handler(commands=['help'])
-async def accs_handler(message: types.Message):
+async def help_handler(message: types.Message):
     try:
         await bot.send_message(
             int(settings['user_id']),
@@ -627,17 +617,21 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /help: ")
         await message.reply(f"Error /help: {e}")
      
+# command /i {wax_name}
 @dp.message_handler(commands=['i'])
-async def accs_handler(message: types.Message):
+async def i_handler(message: types.Message):
     try:
         c, acc = message['text'].split()
         
-        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        accounts_dumb = get_accounts()
         if accounts_dumb.get(acc):
             _ = 0
             _tools = []
             for asset in accounts_dumb[acc]['assets']:
                 info = fetch_asset(asset)
+                if not info['success']:
+                    continue
+                
                 if info['name'] == 'Standard Drill' or info['name'] == 'Standard Shovel':
                     if _ >= 96:
                         break
@@ -645,7 +639,6 @@ async def accs_handler(message: types.Message):
                         _tools.append(asset)
                     _ += 1
             t = str(_tools).replace("'", '"').replace(' ', '')
-            #%5B
             link = f'https://wax.bloks.io/account/m.federation?loadContract=true&tab=Actions&account={acc}&scope=m.federation&limit=100&action=setbag&items={t}'
             link = link.replace('[', '%5B').replace(']', '%5D').replace('"', '%22')
             await bot.send_message(
@@ -659,8 +652,11 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /i: ")
         await message.reply(f"Error /i: {e}")
         
+# command /cpu {percent}
+# command /net {percent}
+# command /ram {percent}
 @dp.message_handler(commands=['ram', 'net', 'cpu'])
-async def accs_handler(message: types.Message):
+async def res_handler(message: types.Message):
     try:
         c, resourse = message['text'].split()
         _type = c[1:]
@@ -676,21 +672,24 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /i: ")
         await message.reply(f"Error /i: {e}")
         
+# command /get_cost
 @dp.message_handler(commands=['get_cost'])
-async def accs_handler(message: types.Message):
+async def get_cost_handler(message: types.Message):
     try:
         await message.reply('Загрузка...\nВремя вычислений зависит от количества аккаунтов, обычно около 1-3 минут.')
-        accounts_dumb = loadInJSON().get('accounts_dumb.json')
+        accounts_dumb = get_accounts()
         all_items = {}
         
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
-        nfts = sum([accounts_dumb[x]['nfts_count'] for x in accounts_dumb.keys()])
+        nfts = sum([len(accounts_dumb[x]['assets']) for x in accounts_dumb.keys()])
         text += f"<b>NFTs: {nfts}</b>\n"
         text += f"<b>Tokens:</b>\n"
         
         for k, v in accounts_dumb.items():
             for asset in v['assets']:
                 parsed = fetch_asset(asset)
+                if not parsed['success']:
+                    continue
 
                 if all_items.get(parsed['name']):
                     all_items[parsed['name']]['count'] += 1
@@ -711,8 +710,8 @@ async def accs_handler(message: types.Message):
         if tokens_sum.get('WAX'):
             wax_sum += tokens_sum['WAX']
             
-        tlm_usd, tlm_rub = get_token_price(GET_TLM_PRICE)
-        wax_usd, wax_rub = get_token_price(GET_WAX_PRICE)
+        tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
+        wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
         account_summ_usd = 0
         account_summ_rub = 0
         for k, v in tokens_sum.items():
@@ -747,7 +746,7 @@ async def accs_handler(message: types.Message):
         rub_acc_summ += round(wax_sum*wax_rub, 2)
 
         if tokens_sum.get('TLM'):
-            tlm_usd, tlm_rub = get_token_price(GET_TLM_PRICE)
+            tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
             text += f"<b>All accounts TLM USD price: {round(tokens_sum['TLM']*tlm_usd, 2)} USD</b>\n"
             text += f"<b>All accounts TLM RUB price: {round(tokens_sum['TLM']*tlm_rub, 2)} RUB</b>\n"
             usd_acc_summ += round(tokens_sum['TLM']*tlm_usd, 2)
@@ -770,6 +769,7 @@ async def accs_handler(message: types.Message):
         _log.exception("Error /get_cost: ")
         await message.reply(f"Error /get_cost: {e}")   
         
+# start thread
 def start():
     while True:
         try:
@@ -777,9 +777,9 @@ def start():
             run()
         except Exception as e:
             _log.exception("MainError: ")
-            
-Thread(target=start).start()
-executor.start_polling(dp, skip_updates=True, loop=zalupa)
+if __name__ == '__main__':
+    Thread(target=start).start()
+    executor.start_polling(dp, skip_updates=True, loop=zalupa)
 """
 {
     "name": {
