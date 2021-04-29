@@ -2,7 +2,7 @@ import json
 
 class URL:
     WAX_TOKEN = "https://wax.greymass.com/v1/chain/get_currency_balance"
-    TOKENS = "https://www.api.bloks.io/wax/account/{account}?type=getAccountTokens&coreSymbol=WAX"
+    TOKENS = "https://wax.eosrio.io/v2/state/get_tokens?account={account}"
     NFTS = "https://wax.api.atomicassets.io/atomicassets/v1/assets?owner={account}&page=1&limit=100000&order=desc&sort=asset_id"
     WAX = "https://wax.bloks.io/account/"
     ATOMIC = "https://wax.atomichub.io/profile/"

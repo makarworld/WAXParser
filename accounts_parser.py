@@ -254,7 +254,7 @@ def run():
             _isretry = False
             for _ in range(3):
                 try:
-                    tokens_response = s.get(token, timeout=10)
+                    tokens_response = requests.get(token, proxies=_proxy, timeout=10)
                     tokens_response = tokens_response.json()
                     if _isretry:
                         log("Подключение восстановлено!")
@@ -265,7 +265,7 @@ def run():
                     _isretry = True
                     continue
             else:
-                tokens_response = {'tokens': [{'currency': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
+                tokens_response = {'tokens': [{'symbol': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
                 
             _isretry = False
             for _ in range(3):
@@ -291,11 +291,7 @@ def run():
                 continue
             
             
-            tokens = [{x['currency']: x['amount'] for x in tokens_response['tokens']}][0]
-            #tokens = {'WAX': 0}
-            if wax_balance:
-                wax_balance = float(wax_balance[0][:-4])
-                tokens['WAX'] = wax_balance
+            tokens = [{x['symbol']: x['amount'] for x in tokens_response['tokens']}][0]
             
             if type(nfts_response) is not list:
                 assets = list(get_assets(nfts_response).keys())
