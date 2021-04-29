@@ -8,3 +8,4 @@ net_limit: 1000
 ram_limit: 1000
 out_of_limit_timeout: 3600
 low_logging: true
+proxy:

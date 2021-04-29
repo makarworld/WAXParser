@@ -39,7 +39,7 @@ def fetch_asset(asset_id: str):
         info = None
         for _ in range(3):
             try:
-                asset_response = s.get(f"{URL.ASSETS}{asset_id}", headers=Payload.ass_headers).json()
+                asset_response = s.get(f"{URL.ASSETS}{asset_id}", proxies=_proxy, headers=Payload.ass_headers).json()
                 break
             except:
                 time.sleep(1)
@@ -110,7 +110,7 @@ def get_price(template: str) -> float:
     params['template_id'] = template
     while True:
         try:
-            response = requests.get(URL.GET_PRICE, params=params).json()
+            response = requests.get(URL.GET_PRICE, proxies=_proxy, params=params).json()
             break
         except:
             log("Error with get item price...")
@@ -151,14 +151,23 @@ def get_asset_info(asset_response):
 
 def get_resourses(name: str) -> dict:
     response = requests.get(URL.RESOURSES, json={"account_name": name}).json()
-    cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
-    net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
-    ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
-    return {
-        'cpu': cpu,
-        'net': net,
-        'ram': ram
-    }
+    try:
+        cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
+        net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
+        ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
+        return {
+            'cpu': cpu,
+            'net': net,
+            'ram': ram
+        }
+    except Exception as e:
+        log(f'Похоже аккаунт {name} вписан неверно или не существует ({e})', w=False)
+        return {
+            'cpu': 0,
+            'net': 0,
+            'ram': 0
+        }
+        
 
 def get_notification_text(name: str, _type: str, body: str):
     return f"<b>Account:</b> <code>{name}</code>\n"\
@@ -207,7 +216,14 @@ async def send_welcome(text):
 
 s = requests.Session()
 s.headers.update(Payload.ass_headers)
-
+if settings['proxy']:
+    _proxy = {
+        'http': settings['proxy'],
+        'https': settings['proxy']
+    }
+    s.proxies = _proxy
+else:
+    _proxy = None
 notification(
     f"<b>WAXParser started.\n"
     f"Creator: <a href=\"https://vk.com/abuz.trade\">abuz.trade</a>\n"
@@ -236,23 +252,31 @@ def run():
             token, nft = get_links(account)
 
             tokens_response = None
+            _isretry = False
             while not tokens_response:
                 try:
                     tokens_response = s.get(token, timeout=10)
                     tokens_response = tokens_response.json()
+                    if _isretry:
+                        log("Подключение восстановлено!")
                 except Exception as e:
                     log(f"GetTokensError: {e}")
                     time.sleep(5)
+                    _isretry = True
                     continue
                 
             nfts_response = None
+            _isretry = False
             while not nfts_response:
                 try:
-                    nfts_response = requests.get(nft, timeout=10)
+                    nfts_response = requests.get(nft, proxies=_proxy, timeout=10)
                     nfts_response = nfts_response.json()
+                    if _isretry:
+                        log("Подключение восстановлено!")
                 except Exception as e:
                     log(f"GetNFTsError: {e}")
                     time.sleep(5)
+                    _isretry = True
                     continue
                 
             _p = Payload.wax_token_payload.copy()
