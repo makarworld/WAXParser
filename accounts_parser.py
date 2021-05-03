@@ -8,6 +8,7 @@ from load_data import loadInStrings, loadInJSON, loadInTxt
 from logger import log_handler, logger
 from copy import deepcopy
 import json
+import  random
 
 from data import URL as _URL
 from data import Payload as _Payload
@@ -106,6 +107,7 @@ def get_token_price(url=URL.GET_WAX_PRICE):
     return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
 
 def get_price(template: str) -> float:
+    return 0
     params = Payload.get_price_params.copy()
     params['template_id'] = template
     while True:
@@ -155,10 +157,17 @@ def get_resourses(name: str) -> dict:
         cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
         net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
         ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
+        
+        if response.get("self_delegated_bandwidth"):
+            cpu_staked = round(float(response['self_delegated_bandwidth']['cpu_weight'][:-4]), 2)
+        else:
+            cpu_staked = 0
+            
         return {
             'cpu': cpu,
             'net': net,
-            'ram': ram
+            'ram': ram,
+            'cpu_staked': cpu_staked
         }
     except Exception as e:
         log(f'Похоже аккаунт {name} вписан неверно или не существует ({e})', w=False)
@@ -224,12 +233,13 @@ if settings['proxy']:
     s.proxies = _proxy
 else:
     _proxy = None
+    
 notification(
     f"<b>WAXParser started.\n"
     f"Creator: <a href=\"https://vk.com/abuz.trade\">abuz.trade</a>\n"
-    f"GitHub: <a href=\"https://github.com/makarworld/WAXParser\">WAXParser</a>\n"
+    f"GitHub: <a href=\"https://github.com/makarworld/WAXParser\">WAXParser</a>\n\n"
     f"Tokens_notifications: {settings['tokens_notifications']}\n"
-    f"Assets_notifications: {settings['assets_notifications']}</b>"
+    f"NFTs_notifications: {settings['nfts_notifications']}</b>"
 )
 
 def run():
@@ -285,13 +295,13 @@ def run():
                 
             _p = Payload.wax_token_payload.copy()
             _p['account'] = account
-            try:
-                wax_balance = s.post(URL.WAX_TOKEN, json=_p).json()
-            except:
-                continue
-            
-            
+
             tokens = [{x['symbol']: x['amount'] for x in tokens_response['tokens']}][0]
+            
+            resourses = get_resourses(account)
+            
+            
+            tokens['CPU_STAKED'] = resourses['cpu_staked']
             
             if type(nfts_response) is not list:
                 assets = list(get_assets(nfts_response).keys())
@@ -377,7 +387,7 @@ def run():
                 del_assets = [str(x) for x in accounts_dumb[account]['assets'] if str(x) not in assets]
                 
                 if new_assets:
-                    body = "Add assets:\n" + '\n'.join(new_assets)
+                    body = "Add NFTs:\n" + '\n'.join(new_assets)
                     
                     body += "\n\n"
                     
@@ -407,13 +417,13 @@ def run():
                         text = _text
                         text += f"\n<b>+{round(_price_sum, 2)} WAX</b>"
                         
-                    if settings['assets_notifications'] == 'true':
+                    if settings['nfts_notifications'] == 'true':
                         notification(text)
                         
                 elif del_assets:
                     _text = f"<b>Account: <code>{account}</code></b>\n" + '\n'.join(del_assets)
-                    body = "Transfer/delete assets:\n" + '\n'.join(del_assets)
-                    log(f"{account} transfer/delete assets: {' '.join(del_assets)}")
+                    body = "Transfer/delete NFTs:\n" + '\n'.join(del_assets)
+                    log(f"{account} transfer/delete NFTs: {' '.join(del_assets)}")
                     if settings['low_logging'] != 'true':
                         text = get_notification_text(
                             account, 
@@ -422,7 +432,7 @@ def run():
                         )
                     else:
                         text = _text
-                    if settings['assets_notifications'] == 'true':
+                    if settings['nfts_notifications'] == 'true':
                         notification(text)
                 
                 base.edit_by('accounts', ['name', account], assets=list(assets))
@@ -430,6 +440,8 @@ def run():
             # check account resourses
             resourses = get_resourses(account)
             for _res in resourses.keys():
+                if 'stake' in _res:
+                    continue
                 if resourses[_res] > int(settings[_res+'_limit']):
                     if limits_notifications[_res].get(account):
                         if time.time() - limits_notifications[_res][account] >= int(settings['out_of_limit_timeout']):
@@ -558,7 +570,7 @@ async def p_handler(message: types.Message):
                         account_summ_usd += round(v*tlm_usd, 4)
                         account_summ_rub += round(v*tlm_rub, 4)
                         
-                    elif k == 'WAX':
+                    elif k == 'WAX' or k == 'STAKE_CPU':
                         text += f"<b>{k}: {round(v, 4)} ({round(v*wax_usd, 2)}$) ({round(v*wax_rub, 2)} руб.)</b>\n"
                         account_summ_usd += round(v*wax_usd, 4)
                         account_summ_rub += round(v*wax_rub, 4)
@@ -603,9 +615,9 @@ async def onoff_handler(message: types.Message):
     try:
         if len(message['text'].split()) != 2:
             if message['text'] == '/on':
-                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/on nfts/assets/tokens')
+                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/on nfts/tokens')
             else:
-                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/off nfts/assets/tokens')
+                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/off nfts/tokens')
         else:
             c, _type = message['text'].split()
             to = True if c == '/on' else False
@@ -615,7 +627,7 @@ async def onoff_handler(message: types.Message):
                 loadInTxt().save('settings.txt', settings)
                 await message.reply(f'Успешно изменен тип оповещений {_type}_notifications на {str(to).lower()}.')
             else:
-                await message.reply('InvalidType: один из 3 возможных типов уведомлений nfts/assets/tokens')
+                await message.reply('InvalidType: один из 2 возможных типов уведомлений nfts/tokens')
     except Exception as e:
         _log.exception("Error /on | /off: ")
         await message.reply(f"Error /on | /off: {e}")
@@ -745,10 +757,12 @@ async def get_cost_handler(message: types.Message):
                 text += f"<b>{k}: {round(v, 4)} ({round(v*tlm_usd, 2)}$) ({round(v*tlm_rub, 2)} руб.)</b>\n"
                 account_summ_usd += round(v*tlm_usd, 4)
                 account_summ_rub += round(v*tlm_rub, 4)
-            elif k == 'WAX':
+                
+            elif k == 'WAX' or k == 'STAKE_CPU':
                 text += f"<b>{k}: {round(v, 4)} ({round(v*wax_usd, 2)}$) ({round(v*wax_rub, 2)} руб.)</b>\n"
                 account_summ_usd += round(v*wax_usd, 4)
                 account_summ_rub += round(v*wax_rub, 4)
+                
             else:
                 text += f"<b>{k}: {round(v, 4)}</b>\n"
         
@@ -756,10 +770,14 @@ async def get_cost_handler(message: types.Message):
         
         for k, v in all_items.items():
             if v['count'] != 1:
-                text += f"<b>{k}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)} WAX)</b>\n"
+                all_items[k]['text'] = f"<b>{k}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)} WAX)</b>\n"
             else:
-                text += f"<b>{k}: {v['count']} шт. {v['price']} WAX </b>\n"
+                all_items[k]['text'] = f"<b>{k}: {v['count']} шт. {v['price']} WAX </b>\n"
                 
+        sorted_items = {k: v for k, v in sorted(all_items.items(), key=lambda item: item[1]['price'])}
+
+        for k, v in sorted_items.items():
+            text += v['text']
   
         text += "\n"
         
