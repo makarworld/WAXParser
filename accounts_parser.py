@@ -569,7 +569,7 @@ async def p_handler(message: types.Message):
                         account_summ_usd += round(v*tlm_usd, 4)
                         account_summ_rub += round(v*tlm_rub, 4)
                         
-                    elif k == 'WAX' or k == 'STAKE_CPU':
+                    elif k == 'WAX' or k == 'CPU_STAKED':
                         text += f"<b>{k}: {round(v, 4)} ({round(v*wax_usd, 2)}$) ({round(v*wax_rub, 2)} руб.)</b>\n"
                         account_summ_usd += round(v*wax_usd, 4)
                         account_summ_rub += round(v*wax_rub, 4)
