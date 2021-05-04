@@ -2,7 +2,7 @@ user_id:
 bot_token: 
 timeout: 0
 tokens_notifications: true
-assets_notifications: true
+nfts_notifications: true
 cpu_limit: 1000
 net_limit: 1000
 ram_limit: 1000
