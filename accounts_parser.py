@@ -107,7 +107,6 @@ def get_token_price(url=URL.GET_WAX_PRICE):
     return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
 
 def get_price(template: str) -> float:
-    return 0
     params = Payload.get_price_params.copy()
     params['template_id'] = template
     while True:
