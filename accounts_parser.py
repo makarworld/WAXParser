@@ -706,8 +706,8 @@ async def res_handler(message: types.Message):
         loadInTxt().save('settings.txt', settings)
         
     except Exception as e:
-        _log.exception("Error /i: ")
-        await message.reply(f"Error /i: {e}")
+        _log.exception(f"Error {message['text']}: ")
+        await message.reply(f"Error  {message['text']}: {e}")
         
 # command /get_cost
 @dp.message_handler(commands=['get_cost'])
@@ -757,7 +757,7 @@ async def get_cost_handler(message: types.Message):
                 account_summ_usd += round(v*tlm_usd, 4)
                 account_summ_rub += round(v*tlm_rub, 4)
                 
-            elif k == 'WAX' or k == 'STAKE_CPU':
+            elif k == 'WAX' or k == 'CPU_STAKED':
                 text += f"<b>{k}: {round(v, 4)} ({round(v*wax_usd, 2)}$) ({round(v*wax_rub, 2)} руб.)</b>\n"
                 account_summ_usd += round(v*wax_usd, 4)
                 account_summ_rub += round(v*wax_rub, 4)
