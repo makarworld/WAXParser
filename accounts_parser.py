@@ -1,20 +1,19 @@
-from re import M
-import requests
 from aiogram import Bot, Dispatcher, executor, types
 import asyncio
 from threading import Thread
 import time
-from load_data import loadInStrings, loadInJSON, loadInTxt
+from load_data import loadInStrings, loadInTxt
 from logger import log_handler, logger
 from copy import deepcopy
-import json
-import  random
+from cfscrape import create_scraper
 
 from data import URL as _URL
 from data import Payload as _Payload
 from data import to_dict
 
 from mw_sql import baseUniversal
+
+scraper = create_scraper()
 
 _log = logger('WAXParser', 'WAXParser.log', 'INFO').get_logger()
 log = log_handler(_log).log
@@ -23,6 +22,13 @@ base = baseUniversal('accounts.db')
 URL = _URL()
 Payload = _Payload()
 limits_notifications = Payload.limits_notifications.copy()
+settings = loadInTxt().get('settings.txt')
+
+def get_user_ids():
+    ids = [int(x.strip()) for x in settings['user_id'].split(',') if x.strip() != '' and x.strip().isdigit()]
+    if not ids:
+        log.error('UserIdError: invalid user_id. User_id must be a digit (write to @get_user_id_bot)')
+    return ids
 
 def fetch_asset(asset_id: str):
     inbase = base.get_by("assets", get_by=['asset_id', asset_id], args='all')
@@ -40,7 +46,7 @@ def fetch_asset(asset_id: str):
         info = None
         for _ in range(3):
             try:
-                asset_response = s.get(f"{URL.ASSETS}{asset_id}", proxies=_proxy, headers=Payload.ass_headers).json()
+                asset_response = scraper.get(f"{URL.ASSETS}{asset_id}", headers=Payload.ass_headers).json()
                 break
             except:
                 time.sleep(1)
@@ -102,7 +108,7 @@ def get_assets(nft_response):
     return res
 
 def get_token_price(url=URL.GET_WAX_PRICE):
-    response = requests.get(url)
+    response = scraper.get(url)
     response_json = response.json()
     return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
 
@@ -111,7 +117,7 @@ def get_price(template: str) -> float:
     params['template_id'] = template
     while True:
         try:
-            response = requests.get(URL.GET_PRICE, proxies=_proxy, params=params).json()
+            response = scraper.get(URL.GET_PRICE, params=params).json()
             break
         except:
             log("Error with get item price...")
@@ -151,7 +157,7 @@ def get_asset_info(asset_response):
         return {'success': False, 'response': asset_response}
 
 def get_resourses(name: str) -> dict:
-    response = requests.get(URL.RESOURSES, json={"account_name": name}).json()
+    response = scraper.get(URL.RESOURSES, json={"account_name": name}).json()
     try:
         cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
         net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
@@ -173,7 +179,8 @@ def get_resourses(name: str) -> dict:
         return {
             'cpu': 0,
             'net': 0,
-            'ram': 0
+            'ram': 0,
+            'cpu_staked': 0
         }
         
 
@@ -216,23 +223,16 @@ def notification(text):
     fut = asyncio.run_coroutine_threadsafe(send_welcome(text), zalupa)
 
 async def send_welcome(text):
-    try:
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html', disable_web_page_preview=True)
-    except Exception as e:
-        print(f'notification error: {e}')
+    for u in get_user_ids():
+        try:
+            if len(text) > 4096:
+                for x in range(0, len(text), 4096):
+                    await bot.send_message(u, text[x:x + 4096], parse_mode='html', disable_web_page_preview=True)
+                else:
+                    await bot.send_message(u, text, parse_mode='html', disable_web_page_preview=True)
+        except Exception as e:
+            print(f'notification error: {e}')
 
-
-s = requests.Session()
-s.headers.update(Payload.ass_headers)
-if settings['proxy']:
-    _proxy = {
-        'http': settings['proxy'],
-        'https': settings['proxy']
-    }
-    s.proxies = _proxy
-else:
-    _proxy = None
-    
 notification(
     f"<b>WAXParser started.\n"
     f"Creator: <a href=\"https://vk.com/abuz.trade\">abuz.trade</a>\n"
@@ -263,7 +263,7 @@ def run():
             _isretry = False
             for _ in range(3):
                 try:
-                    tokens_response = requests.get(token, proxies=_proxy, timeout=10)
+                    tokens_response = scraper.get(token, timeout=10)
                     tokens_response = tokens_response.json()
                     if _isretry:
                         log("Подключение восстановлено!")
@@ -279,7 +279,7 @@ def run():
             _isretry = False
             for _ in range(3):
                 try:
-                    nfts_response = requests.get(nft, proxies=_proxy, timeout=10)
+                    nfts_response = scraper.get(nft, timeout=10)
                     nfts_response = nfts_response.json()
                     if _isretry:
                         log("Подключение восстановлено!")
@@ -346,7 +346,7 @@ def run():
                                     if settings['low_logging'] == 'true':
                                         _text = f"<b>Account: <code>{account}</code>\n+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{v1} {k1}]</b>"
                                     
-                                    if round(v1 - accounts_dumb[account]['tokens'][k1], 6) <= 0.0009 and k1 == 'TLM':
+                                    if round(v1 - accounts_dumb[account]['tokens'][k1], 6) <= 0.0001 and k1 == 'TLM':
                                         notification(
                                             f"<b>Account: {account}\n"\
                                             f"+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} TLM\n"\
@@ -458,19 +458,21 @@ def run():
 # command /exec {some_code}
 @dp.message_handler(commands=['eval', 'exec'])
 async def eval_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
+    
     try:
-        if int(settings['user_id']) == message['from']['id']:
-            c, cmd = message['text'].split()
-            _t = c[1:]
-            if _t == 'eval':
-                if cmd.startswith('await'):
-                    res = await eval(cmd[6:])
-                else:
-                    res = eval(cmd)
+        c, cmd = message['text'].split()
+        _t = c[1:]
+        if _t == 'eval':
+            if cmd.startswith('await'):
+                res = await eval(cmd[6:])
             else:
-                exec(cmd)
-                res = 'Ok'
-            await message.reply(res)
+                res = eval(cmd)
+        else:
+            exec(cmd)
+            res = 'Ok'
+        await message.reply(res)
             
     except Exception as e:
         _log.exception("Error /help: ")
@@ -479,6 +481,9 @@ async def eval_handler(message: types.Message):
 # command /info            
 @dp.message_handler(commands=['info'])
 async def info_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
+    
     try:
         accounts_dumb = get_accounts()
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
@@ -495,7 +500,7 @@ async def info_handler(message: types.Message):
                     tokens_sum[k] += v
         text += '\n'.join([f"<b>{k}: {round(v, 4)}</b>" for k, v in tokens_sum.items()])
                     
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html')
+        await bot.send_message(message['from']['id'], text, parse_mode='html')
     except Exception as e:
         _log.exception("Error /info: ")
         await message.reply(f"Error /info: {e}")
@@ -503,6 +508,8 @@ async def info_handler(message: types.Message):
 # command /accs          
 @dp.message_handler(commands=['accs'])
 async def accs_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
         accounts_dumb = get_accounts()
@@ -521,7 +528,7 @@ async def accs_handler(message: types.Message):
                     text += f" | 0 TLM"
             text += '\n'
                 
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html')
+        await bot.send_message(message['from']['id'], text, parse_mode='html')
     except Exception as e:
         _log.exception("Error /accs: ")
         await message.reply(f"Error /accs: {e}")
@@ -529,6 +536,8 @@ async def accs_handler(message: types.Message):
 # command /course        
 @dp.message_handler(commands=['course'])
 async def course_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
         wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
@@ -537,7 +546,7 @@ async def course_handler(message: types.Message):
         text += f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> USD: {tlm_usd}$</b>\n"\
                 f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> RUB: {tlm_rub} руб.</b>\n"
         
-        await bot.send_message(int(settings['user_id']), text, parse_mode='html', disable_web_page_preview=True)
+        await bot.send_message(message['from']['id'], text, parse_mode='html', disable_web_page_preview=True)
     except Exception as e:
         _log.exception("Error /course: ")
         await message.reply(f"Error /course: {e}")
@@ -545,14 +554,16 @@ async def course_handler(message: types.Message):
 # command /p {wax_name}    
 @dp.message_handler(commands=['p'])
 async def p_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         if len(message["text"].split()) != 2: 
-            await bot.send_message(int(settings['user_id']), "Неверная команда.\nПример: /p namee.wam")
+            await bot.send_message(message['from']['id'], "Неверная команда.\nПример: /p namee.wam")
         else:
             c, name = message["text"].split()
             accounts_dumb = get_accounts()
             if name not in accounts_dumb.keys():
-                await bot.send_message(int(settings['user_id']), "Нет информации.")
+                await bot.send_message(message['from']['id'], "Нет информации.")
             else:
                 await message.reply("Загрузка...\nПодождите пока все предметы спарсятся.\nОбычно занимает от 5 секунд до 3 минут.")
                 account_summ_usd = 0
@@ -602,7 +613,7 @@ async def p_handler(message: types.Message):
                 text += "\n"
                 text += f"<b>Account USD price: {round(account_summ_usd, 2)} USD</b>\n"
                 text += f"<b>Account RUB price: {round(account_summ_rub, 2)} RUB</b>\n"
-                await bot.send_message(int(settings['user_id']), text, parse_mode='html')
+                await bot.send_message(message['from']['id'], text, parse_mode='html')
     except Exception as e:
         _log.exception("Error /p: ")
         await message.reply(f"Error /p: {e}")
@@ -611,12 +622,21 @@ async def p_handler(message: types.Message):
 # command /off {resourse}  
 @dp.message_handler(commands=['on', 'off'])
 async def onoff_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         if len(message['text'].split()) != 2:
-            if message['text'] == '/on':
-                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/on nfts/tokens')
-            else:
-                await message.reply('Неверная команда. Введите команду по примеру ниже:\n/off nfts/tokens')
+            c = message['text']
+            for _type in ['nfts', 'tokens']:
+                to = True if c == '/on' else False
+                settings = loadInTxt(separator=':').get('settings.txt')
+                if settings.get(_type + "_notifications"):
+                    settings[_type + "_notifications"] = str(to).lower()
+                    loadInTxt().save('settings.txt', settings)
+                    await message.reply(f'Успешно изменен тип оповещений {_type}_notifications на {str(to).lower()}.')
+                else:
+                    await message.reply('InvalidType: один из 2 возможных типов уведомлений nfts/tokens')
+                
         else:
             c, _type = message['text'].split()
             to = True if c == '/on' else False
@@ -634,9 +654,11 @@ async def onoff_handler(message: types.Message):
 # command /help
 @dp.message_handler(commands=['help'])
 async def help_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         await bot.send_message(
-            int(settings['user_id']),
+            message['from']['id'],
             "/help - <b>Список команд.</b>\n"\
             "/info - <b>Общая информация по аккаунтам</b>\n"\
             "/accs - <b>Список загруженных аккаунтов</b>\n"\
@@ -657,6 +679,8 @@ async def help_handler(message: types.Message):
 # command /i {wax_name}
 @dp.message_handler(commands=['i'])
 async def i_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         c, acc = message['text'].split()
         
@@ -679,7 +703,7 @@ async def i_handler(message: types.Message):
             link = f'https://wax.bloks.io/account/m.federation?loadContract=true&tab=Actions&account={acc}&scope=m.federation&limit=100&action=setbag&items={t}'
             link = link.replace('[', '%5B').replace(']', '%5D').replace('"', '%22')
             await bot.send_message(
-                int(settings['user_id']),
+                message['from']['id'],
                 link,    
                 parse_mode='html'
             )
@@ -694,12 +718,14 @@ async def i_handler(message: types.Message):
 # command /ram {percent}
 @dp.message_handler(commands=['ram', 'net', 'cpu'])
 async def res_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         c, resourse = message['text'].split()
         _type = c[1:]
         settings[_type.lower() + '_limit'] = int(resourse)
         await bot.send_message(
-            int(settings['user_id']),
+            message['from']['id'],
             f'<b>Установлено оповещение при {_type.upper()} > {resourse}%</b>',    
             parse_mode='html'
         )
@@ -707,11 +733,13 @@ async def res_handler(message: types.Message):
         
     except Exception as e:
         _log.exception(f"Error {message['text']}: ")
-        await message.reply(f"Error  {message['text']}: {e}")
+        await message.reply(f"Error {message['text']}: {e}")
         
 # command /get_cost
 @dp.message_handler(commands=['get_cost'])
 async def get_cost_handler(message: types.Message):
+    if message['from']['id'] not in get_user_ids():
+        return
     try:
         await message.reply('Загрузка...\nВремя вычислений зависит от количества аккаунтов, обычно около 1-3 минут.')
         accounts_dumb = get_accounts()
@@ -805,7 +833,7 @@ async def get_cost_handler(message: types.Message):
         text += f"<b>TLM -> USD: {tlm_usd}$</b>\n"\
                 f"<b>TLM -> RUB: {tlm_rub} руб.</b>\n"
         await bot.send_message(
-            int(settings['user_id']),
+            message['from']['id'],
             text,    
             parse_mode='html')
     except Exception as e:
