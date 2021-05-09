@@ -27,7 +27,7 @@ settings = loadInTxt().get('settings.txt')
 def get_user_ids():
     ids = [int(x.strip()) for x in settings['user_id'].split(',') if x.strip() != '' and x.strip().isdigit()]
     if not ids:
-        log.error('UserIdError: invalid user_id. User_id must be a digit (write to @get_user_id_bot)')
+        _log.error('UserIdError: invalid user_id. User_id must be a digit (write to @get_user_id_bot)')
     return ids
 
 def fetch_asset(asset_id: str):
@@ -183,7 +183,6 @@ def get_resourses(name: str) -> dict:
             'cpu_staked': 0
         }
         
-
 def get_notification_text(name: str, _type: str, body: str):
     return f"<b>Account:</b> <code>{name}</code>\n"\
            f"<b>Event type: {_type}</b>\n"\
@@ -223,13 +222,15 @@ def notification(text):
     fut = asyncio.run_coroutine_threadsafe(send_welcome(text), zalupa)
 
 async def send_welcome(text):
-    for u in get_user_ids():
+    uzs = get_user_ids()
+    for u in uzs:
         try:
             if len(text) > 4096:
                 for x in range(0, len(text), 4096):
                     await bot.send_message(u, text[x:x + 4096], parse_mode='html', disable_web_page_preview=True)
-                else:
-                    await bot.send_message(u, text, parse_mode='html', disable_web_page_preview=True)
+            else:
+                await bot.send_message(u, text, parse_mode='html', disable_web_page_preview=True)
+
         except Exception as e:
             print(f'notification error: {e}')
 
