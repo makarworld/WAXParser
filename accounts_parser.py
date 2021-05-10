@@ -2,19 +2,18 @@ from aiogram import Bot, Dispatcher, executor, types
 import asyncio
 from threading import Thread
 import time
-from load_data import loadInStrings, loadInTxt
-from logger import log_handler, logger
 from copy import deepcopy
 from cfscrape import create_scraper
 
+from load_data import loadInStrings, loadInTxt
+from logger import log_handler, logger
 from data import URL as _URL
 from data import Payload as _Payload
 from data import to_dict
-
 from mw_sql import baseUniversal
+from _utils import _utils
 
 scraper = create_scraper()
-
 _log = logger('WAXParser', 'WAXParser.log', 'INFO').get_logger()
 log = log_handler(_log).log
 base = baseUniversal('accounts.db')
@@ -24,205 +23,17 @@ Payload = _Payload()
 limits_notifications = Payload.limits_notifications.copy()
 settings = loadInTxt().get('settings.txt')
 
-def get_user_ids():
-    ids = [int(x.strip()) for x in settings['user_id'].split(',') if x.strip() != '' and x.strip().isdigit()]
-    if not ids:
-        _log.error('UserIdError: invalid user_id. User_id must be a digit (write to @get_user_id_bot)')
-    return ids
-
-def fetch_asset(asset_id: str):
-    inbase = base.get_by("assets", get_by=['asset_id', asset_id], args='all')
-    if inbase:
-        return {
-            'success': True,
-            'asset_id': inbase[0]['asset_id'],
-            'name': inbase[0]['name'],
-            'rarity': inbase[0]['rarity'], 
-            'contract': inbase[0]['contract'],
-            'collection_name': inbase[0]['collection_name'],
-            'template_id': inbase[0]['template_id']
-        }
-    else:
-        info = None
-        for _ in range(3):
-            try:
-                asset_response = scraper.get(f"{URL.ASSETS}{asset_id}", headers=Payload.ass_headers).json()
-                break
-            except:
-                time.sleep(1)
-                continue
-        else:
-            info = {
-                'success': False
-            }
-            
-        if not info:
-            info = get_asset_info(asset_response)
-            if info['success']:
-                base.add(
-                    table='assets',
-                    asset_id=asset_id,
-                    name=info['name'],
-                    rarity=info['rarity'], 
-                    contract=info['contract'],
-                    collection_name=info['collection_name'],
-                    template_id=info['template_id']
-                )
-        
-        return info
-
-def get_assets(nft_response):
-    res = {}
-    for ass in nft_response['data']:
-        asset_id = ass['asset_id']
-        contract = ass.get('contract')
-        collection = ass.get('collection')
-        collection_name = collection.get('name') if collection else None
-        item_name = ass.get('name')
-        
-        rarity = ass.get('data').get('rarity') if collection_name == 'Alien Worlds' else None
-        template = ass.get('template')
-        if template:
-            template = template['template_id'] if template.get('template_id') else None
-        
-        info = {
-            'contract': contract,
-            'collection_name': collection_name,
-            'template_id': template,
-            'name': item_name,
-            'rarity': rarity
-        }
-        res[asset_id] = info
-
-        if not base.get_by("assets", get_by=['asset_id', asset_id], args='all'):
-            base.add(
-                table='assets',
-                asset_id=asset_id,
-                name=info['name'],
-                rarity=info['rarity'], 
-                contract=info['contract'],
-                collection_name=info['collection_name'],
-                template_id=info['template_id']
-            )
-        
-    return res
-
-def get_token_price(url=URL.GET_WAX_PRICE):
-    response = scraper.get(url)
-    response_json = response.json()
-    return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
-
-def get_price(template: str) -> float:
-    params = Payload.get_price_params.copy()
-    params['template_id'] = template
-    while True:
-        try:
-            response = scraper.get(URL.GET_PRICE, params=params).json()
-            break
-        except:
-            log("Error with get item price...")
-            time.sleep(5)
-        
-    if response.get('data'):
-        return round(int(response['data'][0]["listing_price"]) / 100000000, 2)
-    else:
-        log(response)
-        return 0
-
-def get_asset_info(asset_response):
-    if asset_response['success']:
-        asset_info = asset_response.get('data')
-        if asset_info:
-            contract = asset_info.get('contract')
-            collection = asset_info.get('collection')
-            collection_name = collection.get('name') if collection else None
-            item_name = asset_info.get('name')
-            
-            rarity = asset_info.get('data').get('rarity') if collection_name == 'Alien Worlds' else None
-            template = asset_info.get('template')
-            if template:
-                template = template['template_id'] if template.get('template_id') != None else None
-            
-            return {
-                'success': True,
-                'contract': contract,
-                'collection_name': collection_name,
-                'template_id': template,
-                'name': item_name,
-                'rarity': rarity
-            }
-        else:
-            return {'success': False, 'response': asset_response}
-    else:
-        return {'success': False, 'response': asset_response}
-
-def get_resourses(name: str) -> dict:
-    response = scraper.get(URL.RESOURSES, json={"account_name": name}).json()
-    try:
-        cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
-        net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
-        ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
-        
-        if response.get("self_delegated_bandwidth"):
-            cpu_staked = round(float(response['self_delegated_bandwidth']['cpu_weight'][:-4]), 2)
-        else:
-            cpu_staked = 0
-            
-        return {
-            'cpu': cpu,
-            'net': net,
-            'ram': ram,
-            'cpu_staked': cpu_staked
-        }
-    except Exception as e:
-        log(f'Похоже аккаунт {name} вписан неверно или не существует ({e})', w=False)
-        return {
-            'cpu': 0,
-            'net': 0,
-            'ram': 0,
-            'cpu_staked': 0
-        }
-        
-def get_notification_text(name: str, _type: str, body: str):
-    return f"<b>Account:</b> <code>{name}</code>\n"\
-           f"<b>Event type: {_type}</b>\n"\
-           f"<i>{body}</i>\n"\
-           f"<b>Link: {URL.WAX}{name}</b>\n"\
-           f"<b>Atomic: {URL.ATOMIC}{name}</b>"
-
-def get_links(name: str) -> tuple:
-    return (
-        URL.TOKENS.replace('{account}', name),
-        URL.NFTS.replace('{account}', name)
-    )
-
-def get_accounts():
-    accounts_dumb = base.get_table('accounts')
-    accounts_dumb = [
-        {
-            x['name']: {
-                'assets': to_dict(x['assets']), 
-                'tokens': to_dict(x['tokens'])
-            }
-        for x in accounts_dumb
-        }
-    ]
-    if accounts_dumb:
-        return accounts_dumb[0]
-    else:
-        return accounts_dumb
-
-settings = loadInTxt().get('settings.txt')
-
 bot = Bot(token=settings['bot_token'])
 dp = Dispatcher(bot)
 zalupa = asyncio.new_event_loop()
+
+_u = _utils(settings, base, _log, log, scraper, URL, Payload)
 
 def notification(text):
     fut = asyncio.run_coroutine_threadsafe(send_welcome(text), zalupa)
 
 async def send_welcome(text):
-    uzs = get_user_ids()
+    uzs = _u.get_user_ids()
     for u in uzs:
         try:
             if len(text) > 4096:
@@ -237,7 +48,8 @@ async def send_welcome(text):
 notification(
     f"<b>WAXParser started.\n"
     f"Creator: <a href=\"https://vk.com/abuz.trade\">abuz.trade</a>\n"
-    f"GitHub: <a href=\"https://github.com/makarworld/WAXParser\">WAXParser</a>\n\n"
+    f"GitHub: <a href=\"https://github.com/makarworld/WAXParser\">WAXParser</a>\n"
+    f"Donate: <a href=\"https://wax.bloks.io/account/abuztradewax\">abuztradewax</a>\n\n"
     f"Tokens_notifications: {settings['tokens_notifications']}\n"
     f"NFTs_notifications: {settings['nfts_notifications']}</b>"
 )
@@ -245,7 +57,7 @@ notification(
 def run():
     while True:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
-        accounts_dumb = get_accounts()
+        accounts_dumb = _u.get_accounts()
             
         for account in accounts:
             settings = loadInTxt().get('settings.txt')
@@ -259,7 +71,7 @@ def run():
                     tokens=accounts_dumb[account]['tokens']
                 )
             
-            token, nft = get_links(account)
+            token, nft = _u.get_links(account)
 
             _isretry = False
             for _ in range(3):
@@ -298,13 +110,13 @@ def run():
 
             tokens = [{x['symbol']: x['amount'] for x in tokens_response['tokens']}][0]
             
-            resourses = get_resourses(account)
+            resourses = _u.get_resourses(account)
             
             
             tokens['CPU_STAKED'] = resourses['cpu_staked']
             
             if type(nfts_response) is not list:
-                assets = list(get_assets(nfts_response).keys())
+                assets = list(_u.get_assets(nfts_response).keys())
             else:
                 assets = nfts_response
 
@@ -320,7 +132,7 @@ def run():
                                f"{k}: {v}"
                         accounts_dumb[account]['tokens'][k] = v
                         if settings['low_logging'] != 'true':
-                            text = get_notification_text(
+                            text = _u.get_notification_text(
                                 account, 
                                 _type,
                                 body
@@ -365,7 +177,7 @@ def run():
                                     accounts_dumb[account]['tokens'][k1] = v1
                                 
                                 if settings['low_logging'] != 'true':
-                                    text = get_notification_text(
+                                    text = _u.get_notification_text(
                                         account, 
                                         _type,
                                         body
@@ -394,10 +206,10 @@ def run():
                     _text = f"<b>Account: <code>{account}</code></b>\n"
                     _price_sum = 0
                     for ass in new_assets:
-                        parsed = fetch_asset(ass)
+                        parsed = _u.fetch_asset(ass)
                         if not parsed['success']:
                             continue
-                        price = get_price(parsed['template_id'])
+                        price = _u.get_price(parsed['template_id'])
                         body += f"<b>Asset: {ass}</b>\n"\
                                 f"<b>Collection name: {parsed['collection_name']}</b>\n"\
                                 f"<b>Name: {parsed['name']}</b>\n"\
@@ -408,7 +220,7 @@ def run():
                         _price_sum += price
                     
                     if settings['low_logging'] != 'true':
-                        text = get_notification_text(
+                        text = _u.get_notification_text(
                             account, 
                             _type,
                             body
@@ -425,7 +237,7 @@ def run():
                     body = "Transfer/delete NFTs:\n" + '\n'.join(del_assets)
                     log(f"{account} transfer/delete NFTs: {' '.join(del_assets)}")
                     if settings['low_logging'] != 'true':
-                        text = get_notification_text(
+                        text = _u.get_notification_text(
                             account, 
                             _type,
                             body
@@ -438,7 +250,7 @@ def run():
                 base.edit_by('accounts', ['name', account], assets=list(assets))
             
             # check account resourses
-            resourses = get_resourses(account)
+            resourses = _u.get_resourses(account)
             for _res in resourses.keys():
                 if 'stake' in _res:
                     continue
@@ -459,7 +271,7 @@ def run():
 # command /exec {some_code}
 @dp.message_handler(commands=['eval', 'exec'])
 async def eval_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     
     try:
@@ -482,11 +294,11 @@ async def eval_handler(message: types.Message):
 # command /info            
 @dp.message_handler(commands=['info'])
 async def info_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     
     try:
-        accounts_dumb = get_accounts()
+        accounts_dumb = _u.get_accounts()
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
         nfts = sum([len(accounts_dumb[x]['assets']) for x in accounts_dumb.keys()])
         text += f"<b>NFTs: {nfts}</b>\n"
@@ -509,11 +321,11 @@ async def info_handler(message: types.Message):
 # command /accs          
 @dp.message_handler(commands=['accs'])
 async def accs_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
-        accounts_dumb = get_accounts()
+        accounts_dumb = _u.get_accounts()
         text = ""
         for i, x in enumerate(accounts):
             text += f"[{i+1}] <code>{x}</code>"
@@ -535,13 +347,13 @@ async def accs_handler(message: types.Message):
         await message.reply(f"Error /accs: {e}")
     
 # command /course        
-@dp.message_handler(commands=['course'])
+@dp.message_handler(commands=['course', 'c'])
 async def course_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
-        tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
-        wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
+        tlm_usd, tlm_rub = _u.get_token_price(URL.GET_TLM_PRICE)
+        wax_usd, wax_rub = _u.get_token_price(URL.GET_WAX_PRICE)
         text = f"<b><a href=\"{URL.COINGECKO_WAX_PAGE}\">WAX</a> -> USD: {wax_usd}$</b>\n"\
                 f"<b><a href=\"{URL.COINGECKO_WAX_PAGE}\">WAX</a> -> RUB: {wax_rub} руб.</b>\n"
         text += f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> USD: {tlm_usd}$</b>\n"\
@@ -562,7 +374,7 @@ async def p_handler(message: types.Message):
             await bot.send_message(message['from']['id'], "Неверная команда.\nПример: /p namee.wam")
         else:
             c, name = message["text"].split()
-            accounts_dumb = get_accounts()
+            accounts_dumb = _u.get_accounts()
             if name not in accounts_dumb.keys():
                 await bot.send_message(message['from']['id'], "Нет информации.")
             else:
@@ -573,8 +385,8 @@ async def p_handler(message: types.Message):
                        f"<b>NFTs: {len(accounts_dumb[name]['assets'])}</b>\n"\
                        f"<b>Tokens:</b>\n"
                 
-                tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
-                wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
+                tlm_usd, tlm_rub = _u.get_token_price(URL.GET_TLM_PRICE)
+                wax_usd, wax_rub = _u.get_token_price(URL.GET_WAX_PRICE)
                 for k, v in accounts_dumb[name]['tokens'].items():
                     if k == 'TLM':
                         text += f"<b>{k}: {round(v, 4)} ({round(v*tlm_usd, 2)}$) ({round(v*tlm_rub, 2)} руб.)</b>\n"
@@ -593,7 +405,7 @@ async def p_handler(message: types.Message):
                 ass_names = {}
                 
                 for ass in accounts_dumb[name]['assets']:
-                    parsed = fetch_asset(ass)
+                    parsed = _u.fetch_asset(ass)
                     if not parsed['success']:
                         continue
 
@@ -603,7 +415,7 @@ async def p_handler(message: types.Message):
                         ass_names[parsed['name']]['count'] += 1
                 
                 for x, y in ass_names.items():
-                    price = get_price( y['info']['template_id'] )
+                    price = _u.get_price( y['info']['template_id'] )
                     if y['count'] != 1:
                         text += f"<b>{x} - {y['count']} шт. {price} WAX (~{round(price*y['count'], 2)} WAX)</b>\n"
                     else:
@@ -623,7 +435,7 @@ async def p_handler(message: types.Message):
 # command /off {resourse}  
 @dp.message_handler(commands=['on', 'off'])
 async def onoff_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         if len(message['text'].split()) != 2:
@@ -653,9 +465,9 @@ async def onoff_handler(message: types.Message):
         await message.reply(f"Error /on | /off: {e}")
 
 # command /help
-@dp.message_handler(commands=['help'])
+@dp.message_handler(commands=['help', 'h'])
 async def help_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         await bot.send_message(
@@ -680,17 +492,17 @@ async def help_handler(message: types.Message):
 # command /i {wax_name}
 @dp.message_handler(commands=['i'])
 async def i_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         c, acc = message['text'].split()
         
-        accounts_dumb = get_accounts()
+        accounts_dumb = _u.get_accounts()
         if accounts_dumb.get(acc):
             _ = 0
             _tools = []
             for asset in accounts_dumb[acc]['assets']:
-                info = fetch_asset(asset)
+                info = _u.fetch_asset(asset)
                 if not info['success']:
                     continue
                 
@@ -719,7 +531,7 @@ async def i_handler(message: types.Message):
 # command /ram {percent}
 @dp.message_handler(commands=['ram', 'net', 'cpu'])
 async def res_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         c, resourse = message['text'].split()
@@ -737,13 +549,13 @@ async def res_handler(message: types.Message):
         await message.reply(f"Error {message['text']}: {e}")
         
 # command /get_cost
-@dp.message_handler(commands=['get_cost'])
+@dp.message_handler(commands=['get_cost', 'gc'])
 async def get_cost_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         await message.reply('Загрузка...\nВремя вычислений зависит от количества аккаунтов, обычно около 1-3 минут.')
-        accounts_dumb = get_accounts()
+        accounts_dumb = _u.get_accounts()
         all_items = {}
         
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
@@ -753,14 +565,14 @@ async def get_cost_handler(message: types.Message):
         
         for k, v in accounts_dumb.items():
             for asset in v['assets']:
-                parsed = fetch_asset(asset)
+                parsed = _u.fetch_asset(asset)
                 if not parsed['success']:
                     continue
 
                 if all_items.get(parsed['name']):
                     all_items[parsed['name']]['count'] += 1
                 else:
-                    price = get_price(parsed['template_id'])
+                    price = _u.get_price(parsed['template_id'])
                     all_items[parsed['name']] = {'count': 1, 'price': price}
                     
         wax_sum = sum([y['count']*y['price'] for x, y in all_items.items()])
@@ -775,9 +587,12 @@ async def get_cost_handler(message: types.Message):
                     
         if tokens_sum.get('WAX'):
             wax_sum += tokens_sum['WAX']
+          
+        if tokens_sum.get('CPU_STAKED'):
+            wax_sum += tokens_sum['CPU_STAKED']
             
-        tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
-        wax_usd, wax_rub = get_token_price(URL.GET_WAX_PRICE)
+        tlm_usd, tlm_rub = _u.get_token_price(URL.GET_TLM_PRICE)
+        wax_usd, wax_rub = _u.get_token_price(URL.GET_WAX_PRICE)
         account_summ_usd = 0
         account_summ_rub = 0
         for k, v in tokens_sum.items():
@@ -818,7 +633,6 @@ async def get_cost_handler(message: types.Message):
         rub_acc_summ += round(wax_sum*wax_rub, 2)
 
         if tokens_sum.get('TLM'):
-            tlm_usd, tlm_rub = get_token_price(URL.GET_TLM_PRICE)
             text += f"<b>All accounts TLM USD price: {round(tokens_sum['TLM']*tlm_usd, 2)} USD</b>\n"
             text += f"<b>All accounts TLM RUB price: {round(tokens_sum['TLM']*tlm_rub, 2)} RUB</b>\n"
             usd_acc_summ += round(tokens_sum['TLM']*tlm_usd, 2)
@@ -840,7 +654,57 @@ async def get_cost_handler(message: types.Message):
     except Exception as e:
         _log.exception("Error /get_cost: ")
         await message.reply(f"Error /get_cost: {e}")   
+  
+# command /i {wax_name}
+@dp.message_handler(commands=['f', 'find'])
+async def i_handler(message: types.Message):
+    if message['from']['id'] not in _u.get_user_ids():
+        return
+    try:
+        ex = message['text'][3:] if message['text'].startswith('/f') else message['text'][6:]
+        if not ex:
+            await message.reply('Query Not Found.')
+        else:
+            # {item: [accs]}
+            accounts_dumb = _u.get_accounts()
+            all_items = {}
+            
+            for k, v in accounts_dumb.items():
+                for asset in v['assets']:
+                    parsed = _u.fetch_asset(asset)
+                    if not parsed['success']:
+                        continue
+
+                    if all_items.get(parsed['name']):
+                        if k not in all_items[parsed['name']]:
+                            all_items[parsed['name']].append(k)
+                    else:
+                        all_items[parsed['name']] = [k]
+                  
+            s_its = []   
+            for _k, _v in all_items.items():
+                if ex.lower() in _k.lower():
+                    s_its.append({'name': _k, 'accs': _v})
+            if s_its:
+                text = "<b>Found items:</b>\n"
+                for itm in s_its:
+                    text += f"<b>Name: <i>{itm['name']}</i></b>\n"
+                    
+                    for ac in itm['accs']:
+                        text += f"<code>{ac}</code>\n"
+                    else:
+                        text += "\n"
+                await bot.send_message(message['from']['id'], text, parse_mode='html')
+            else:
+                await bot.send_message(message['from']['id'], '<b>Items not found</b>', parse_mode='html')
+            
         
+    except Exception as e:
+        _log.exception("Error /f: ")
+        await message.reply(f"Error /f: {e}")
+        
+
+      
 # start thread
 def start():
     while True:
