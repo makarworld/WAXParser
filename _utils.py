@@ -1,5 +1,6 @@
 import time
-from load_data import to_dict
+from datetime import datetime
+from load_data import to_dict, loadInJSON
 
 class _utils:
     def __init__(self, 
@@ -207,3 +208,84 @@ class _utils:
             return accounts_dumb[0]
         else:
             return accounts_dumb
+
+    def split_text(t, limit=4048):
+        if len(t) > limit:
+            text = t.split('\n')
+            _text = ""
+            _cc = 0
+            for i in text:
+                if (_cc + len(i) + 2 < limit):
+                    _cc += len(i) + 2
+                    _text += i + '\n'
+                else:
+                    yield _text
+                    _text = i + '\n'
+                    _cc = len(_text)
+            else:
+                yield _text
+
+    def get_timer(self):
+        data = loadInJSON().get('timer.json')
+        if not data:
+            data = {
+                'start_timestamp': 0,
+                'balances': {},
+                'nfts': []
+            }
+        loadInJSON().save('timer.json', data)
+        return data
+
+    def create_timer(self):
+        timer = self.get_timer()
+        timer['start_timestamp'] = int(time.time())
+        timer['balances'] = {}
+        loadInJSON().save('timer.json', timer)
+        return timer
+    
+    def update_timer(self, currency, value):
+        timer = self.get_timer()
+        if timer['balances'].get(currency):
+            timer['balances'][currency] += value
+        else:
+            timer['balances'][currency] = value
+            
+        loadInJSON().save('timer.json', timer)
+        return timer
+    
+    def zero_timer(self):
+        loadInJSON().save('timer.json', {})
+
+    def show_time(self, time):
+        time = int(time)
+        day = time // (24 * 3600)
+        time = time % (24 * 3600)
+        hour = time // 3600
+        time %= 3600
+        minutes = time // 60
+        time %= 60
+        seconds = time
+        if day != 0:
+            return "%d days %d hours %d mins %d secounds" % (day, hour, minutes, seconds)
+        elif day == 0 and hour != 0:
+            return "%d hours %d mins %d secounds" % (hour, minutes, seconds)
+        elif day == 0 and hour == 0 and minutes != 0:
+            return "%d mins %d secounds" % (minutes, seconds)
+        else:
+            return "%d secounds" % (seconds)
+        
+    def timer_to_date(self):
+        timer = self.get_timer()
+        strdate = datetime.fromtimestamp(timer['start_timestamp'])
+        time_between = int(time.time() - timer['start_timestamp'])
+        strbetween = self.show_time(time_between)
+        return {
+            'timer': timer,
+            'strdate': strdate,
+            'time_between': time_between,
+            'strbetween': strbetween
+        }
+        
+        
+        
+        

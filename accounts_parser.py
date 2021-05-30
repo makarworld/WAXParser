@@ -44,6 +44,17 @@ async def send_welcome(text):
 
         except Exception as e:
             print(f'notification error: {e}')
+            
+async def send_reply(text, user_id):
+    try:
+        if len(text) > 4096:
+            for x in _u.split_text(text):
+                await bot.send_message(user_id, x, parse_mode='html', disable_web_page_preview=True)
+        else:
+            await bot.send_message(user_id, text, parse_mode='html', disable_web_page_preview=True)
+
+    except Exception as e:
+        print(f'SendMessageError: {repr(e)}')
 
 notification(
     f"<b>WAXParser started.\n"
@@ -73,34 +84,31 @@ def run():
             
             token, nft = _u.get_links(account)
 
-            _isretry = False
             for _ in range(3):
                 try:
                     tokens_response = scraper.get(token, timeout=10)
-                    tokens_response = tokens_response.json()
-                    if _isretry:
-                        log("Подключение восстановлено!")
-                    break
+                    if tokens_response.status_code == 200:
+                        tokens_response = tokens_response.json()
+                    else: 
+                        raise Exception(f"url: {token} | status_code: {tokens_response.status_code}")
                 except Exception as e:
                     log(f"[{_+1}]GetTokensError: {e}")
                     time.sleep(5)
-                    _isretry = True
                     continue
             else:
                 tokens_response = {'tokens': [{'symbol': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
                 
-            _isretry = False
             for _ in range(3):
                 try:
                     nfts_response = scraper.get(nft, timeout=10)
-                    nfts_response = nfts_response.json()
-                    if _isretry:
-                        log("Подключение восстановлено!")
-                    break
+                    if nfts_response.status_code == 200:
+                        nfts_response = nfts_response.json()
+                    else: 
+                        raise Exception(f"url: {token} | status_code: {nfts_response.status_code}")
+                    
                 except Exception as e:
                     log(f"[{_+1}]GetNFTsError: {e}")
                     time.sleep(5)
-                    _isretry = True
                     continue
             else:
                 nfts_response = accounts_dumb[account]['assets']
@@ -156,6 +164,7 @@ def run():
                                     body = f"Add balance:\n"\
                                            f"{k1}: {v1} (+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1})"
                                     log(f"{account} add balance: +{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{v1} {k1}]")
+                                    _u.update_timer(k1, round(v1 - accounts_dumb[account]['tokens'][k1], 5))
                                     if settings['low_logging'] == 'true':
                                         _text = f"<b>Account: <code>{account}</code>\n+{round(v1 - accounts_dumb[account]['tokens'][k1], 5)} {k1} [{v1} {k1}]</b>"
                                     
@@ -265,6 +274,7 @@ def run():
                         limits_notifications[_res][account] = int(time.time())
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
+            log(f"{account} fetched.")
 
                     
 # command /eval {some_code}
@@ -285,7 +295,7 @@ async def eval_handler(message: types.Message):
         else:
             exec(cmd)
             res = 'Ok'
-        await message.reply(res)
+        await send_reply(res, message['from']['id'])
             
     except Exception as e:
         _log.exception("Error /help: ")
@@ -313,7 +323,7 @@ async def info_handler(message: types.Message):
                     tokens_sum[k] += v
         text += '\n'.join([f"<b>{k}: {round(v, 4)}</b>" for k, v in tokens_sum.items()])
                     
-        await bot.send_message(message['from']['id'], text, parse_mode='html')
+        await send_reply(text, message['from']['id'])
     except Exception as e:
         _log.exception("Error /info: ")
         await message.reply(f"Error /info: {e}")
@@ -341,7 +351,8 @@ async def accs_handler(message: types.Message):
                     text += f" | 0 TLM"
             text += '\n'
                 
-        await bot.send_message(message['from']['id'], text, parse_mode='html')
+        await send_reply(text, message['from']['id'])
+        
     except Exception as e:
         _log.exception("Error /accs: ")
         await message.reply(f"Error /accs: {e}")
@@ -359,7 +370,8 @@ async def course_handler(message: types.Message):
         text += f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> USD: {tlm_usd}$</b>\n"\
                 f"<b><a href=\"{URL.COINGECKO_TLM_PAGE}\">TLM</a> -> RUB: {tlm_rub} руб.</b>\n"
         
-        await bot.send_message(message['from']['id'], text, parse_mode='html', disable_web_page_preview=True)
+        await send_reply(text, message['from']['id'])
+        
     except Exception as e:
         _log.exception("Error /course: ")
         await message.reply(f"Error /course: {e}")
@@ -367,7 +379,7 @@ async def course_handler(message: types.Message):
 # command /p {wax_name}    
 @dp.message_handler(commands=['p'])
 async def p_handler(message: types.Message):
-    if message['from']['id'] not in get_user_ids():
+    if message['from']['id'] not in _u.get_user_ids():
         return
     try:
         if len(message["text"].split()) != 2: 
@@ -426,7 +438,8 @@ async def p_handler(message: types.Message):
                 text += "\n"
                 text += f"<b>Account USD price: {round(account_summ_usd, 2)} USD</b>\n"
                 text += f"<b>Account RUB price: {round(account_summ_rub, 2)} RUB</b>\n"
-                await bot.send_message(message['from']['id'], text, parse_mode='html')
+                
+                await send_reply(text, message['from']['id'])
     except Exception as e:
         _log.exception("Error /p: ")
         await message.reply(f"Error /p: {e}")
@@ -481,6 +494,7 @@ async def help_handler(message: types.Message):
             "/off nfts/tokens/assets — <b>Выключение уведомлений</b>\n"\
             "/p xxxxx.wam - <b>Полная информация по аккаунту</b>\n"\
             "/i xxxxx.wam — <b>Сгенерировать ссылку на контракт с 3 первыми лопатами/дрелями</b>\n"\
+            "/f {query} — <b>Поиск NFT по аккаунтам с текстом {query} в названии</b>\n"\
             "/ram число — <b>Уставить процент загрузки RAM после которых присылается оповещение</b>\n"\
             "/cpu число — <b>Уставить процент загрузки CPU после которых присылается оповещение</b>\n"\
             "/net число — <b>Уставить процент загрузки NET после которых присылается оповещение</b>\n",
@@ -647,10 +661,8 @@ async def get_cost_handler(message: types.Message):
                 f"<b>WAX -> RUB: {wax_rub} руб.</b>\n"
         text += f"<b>TLM -> USD: {tlm_usd}$</b>\n"\
                 f"<b>TLM -> RUB: {tlm_rub} руб.</b>\n"
-        await bot.send_message(
-            message['from']['id'],
-            text,    
-            parse_mode='html')
+
+        await send_reply(text, message['from']['id'])
     except Exception as e:
         _log.exception("Error /get_cost: ")
         await message.reply(f"Error /get_cost: {e}")   
@@ -694,7 +706,8 @@ async def i_handler(message: types.Message):
                         text += f"<code>{ac}</code>\n"
                     else:
                         text += "\n"
-                await bot.send_message(message['from']['id'], text, parse_mode='html')
+
+                await send_reply(text, message['from']['id'])
             else:
                 await bot.send_message(message['from']['id'], '<b>Items not found</b>', parse_mode='html')
             
@@ -703,6 +716,65 @@ async def i_handler(message: types.Message):
         _log.exception("Error /f: ")
         await message.reply(f"Error /f: {e}")
         
+@dp.message_handler(commands=['timer', 't'])
+async def help_handler(message: types.Message):
+    if message['from']['id'] not in _u.get_user_ids():
+        return
+    try:
+        # /timer start
+        # /timer 
+        # /timer clear
+        # /timer end
+        if message['text'] == '/timer' or message['text'] == '/t':
+            # return timer info
+            timer = _u.timer_to_date()
+            text = f"<b>[INFO] Timer\n"\
+                   f"Start: {timer['strdate']}\n"\
+                   f"Balanses:\n"
+            text += "\n".join([f"+{round(y, 2)} {x}" for x, y in timer['timer']['balances'].items()])
+            text += "\n\n"
+            text += f"Passed: {timer['strbetween']}</b>"
+            await send_reply(text, message['from']['id'])
+
+            
+        else:
+            # start or end
+            c, cmd = message['text'].split()[:2]
+            if cmd.lower() not in ['start', 'clear', 'end']:
+                await message.reply('Error: Command must be start, clear or end')
+            else:
+                if cmd.lower() == 'start':
+                    timer = _u.get_timer()
+                    if timer.get('start_timestamp') is None or timer.get('start_timestamp') == 0:
+                        # create_timer
+                        _u.create_timer()
+                        await message.reply('Timer created')
+                    else:
+                        # timer already started
+                        await message.reply('Error: timer already started')
+
+                elif cmd.lower() == 'clear':
+                    # clear timer
+                    _u.zero_timer()
+                    await message.reply('Timer cleared')
+                    
+                elif cmd.lower() == 'end':
+                    timer = _u.timer_to_date()
+                    text = f"<b>[INFO] Timer\n"\
+                        f"Start: {timer['strdate']}\n"\
+                        f"Balanses:\n"
+                    text += "\n".join([f"{round(y, 2)} {x}" for x, y in timer['timer']['balances'].items()])
+                    text += "\n\n"
+                    text += f"Passed: {timer['strbetween']}</b>"
+                    await send_reply(text, message['from']['id'])
+
+                    _u.zero_timer()
+                    await message.reply('Timer cleared')
+                        
+    except Exception as e:
+        _log.exception("Error /help: ")
+        await message.reply(f"Error /help: {e}")
+
 
       
 # start thread
