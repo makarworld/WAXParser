@@ -280,7 +280,7 @@ def run():
                         limits_notifications[_res][account] = int(time.time())
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
-            log(f"{account} fetched.")
+            #log(f"{account} fetched.")
             
             # NFT DROP 
             drops = _u.is_nft_dropped(account)
@@ -289,14 +289,18 @@ def run():
                     # nft dropped
                     info_drop = {}
                     for _drop in drops['items']:
-                        inf = base.get_by('assets', ['template_id', _drop], ['name'])[0]['name']
+                        inf = base.get_by('assets', ['template_id', _drop], ['name'])
+                        if inf:
+                            inf = inf[0]['name']
+                        else:
+                            inf = "Undefined NFT card"
                         if inf in info_drop.keys():
                             info_drop[inf] += 1
                         else:
                             info_drop[inf] = 1
                     
-                    print('drop NFT !!!')
-                    print(info_drop)
+                    notification(f'Account {account} drop NFT !!!')
+                    notification(info_drop)
                             
                 else:
                     pass # nft not dropped
