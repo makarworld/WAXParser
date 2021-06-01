@@ -123,8 +123,11 @@ def run():
             
             resourses = _u.get_resourses(account)
             
-            
-            tokens['CPU_STAKED'] = resourses['cpu_staked']
+            if resourses['cpu_staked'] is not None:
+                tokens['CPU_STAKED'] = resourses['cpu_staked']
+            else:
+                if 'cpu_staked' in accounts_dumb[account]['tokens'].keys():
+                    tokens['CPU_STAKED'] = accounts_dumb[account]['tokens']['cpu_staked']
             
             if type(nfts_response) is not list:
                 assets = list(_u.get_assets(nfts_response).keys())
@@ -522,7 +525,11 @@ async def help_handler(message: types.Message):
             "/f {query} — <b>Поиск NFT по аккаунтам с текстом {query} в названии</b>\n"\
             "/ram число — <b>Уставить процент загрузки RAM после которых присылается оповещение</b>\n"\
             "/cpu число — <b>Уставить процент загрузки CPU после которых присылается оповещение</b>\n"\
-            "/net число — <b>Уставить процент загрузки NET после которых присылается оповещение</b>\n",
+            "/net число — <b>Уставить процент загрузки NET после которых присылается оповещение</b>\n"\
+            "/timer start — <b>Запустить таймер для подсчета токенов</b>\n"\
+            "/timer — <b>Информация о текущем таймере</b>\n"\
+            "/timer clear — <b>Сбросить таймер</b>\n"\
+            "/timer end — <b>Показать результат подсчета токенов и сбросить таймер</b>\n",
             parse_mode='html')
     except Exception as e:
         _log.exception("Error /help: ")

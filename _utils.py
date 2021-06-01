@@ -207,7 +207,7 @@ class _utils:
                 'cpu': 0,
                 'net': 0,
                 'ram': 0,
-                'cpu_staked': 0
+                'cpu_staked': None
             }
             
     def get_notification_text(self, name: str, _type: str, body: str):
