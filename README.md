@@ -8,4 +8,4 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 
 Гайд | Guide: https://telegra.ph/WAXParser-04-24
 
-Последние изменения | Last Update Info: https://telegra.ph/0405ChangeLog---WAXParser-05-04
+Новости обновлений: t.me/WAXParser
