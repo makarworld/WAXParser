@@ -89,20 +89,23 @@ def run():
                     tokens_response = scraper.get(token, timeout=10)
                     if tokens_response.status_code == 200:
                         tokens_response = tokens_response.json()
+                        break
                     else: 
                         raise Exception(f"url: {token} | status_code: {tokens_response.status_code}")
+                    
                 except Exception as e:
                     log(f"[{_+1}]GetTokensError: {e}")
                     time.sleep(5)
                     continue
             else:
                 tokens_response = {'tokens': [{'symbol': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
-                
+               
             for _ in range(3):
                 try:
                     nfts_response = scraper.get(nft, timeout=10)
                     if nfts_response.status_code == 200:
                         nfts_response = nfts_response.json()
+                        break
                     else: 
                         raise Exception(f"url: {token} | status_code: {nfts_response.status_code}")
                     
@@ -275,6 +278,28 @@ def run():
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
             log(f"{account} fetched.")
+            
+            # NFT DROP 
+            drops = _u.is_nft_dropped(account)
+            if drops['success']:
+                if drops['isdrop']:
+                    # nft dropped
+                    info_drop = {}
+                    for _drop in drops['items']:
+                        inf = base.get_by('assets', ['template_id', _drop], ['name'])[0]['name']
+                        if inf in info_drop.keys():
+                            info_drop[inf] += 1
+                        else:
+                            info_drop[inf] = 1
+                    
+                    print('drop NFT !!!')
+                    print(info_drop)
+                            
+                else:
+                    pass # nft not dropped
+                
+            else:
+                _log.error(f"[{account}] Fail to fetch drops")
 
                     
 # command /eval {some_code}

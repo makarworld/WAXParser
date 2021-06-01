@@ -9,8 +9,8 @@ class URL:
     ASSETS = "https://wax.api.atomicassets.io/atomicassets/v1/assets/"
     RESOURSES = "https://wax.greymass.com/v1/chain/get_account"
     GET_PRICE = "https://wax.api.atomicassets.io/atomicmarket/v1/sales"
-    GET_WAX_PRICE = 'https://api.coingecko.com/api/v3/coins/wax'
-    GET_TLM_PRICE = 'https://api.coingecko.com/api/v3/coins/alien-worlds'
+    GET_WAX_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=wax'
+    GET_TLM_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=alien-worlds'
 
     COINGECKO_WAX_PAGE = "https://www.coingecko.com/ru/%D0%9A%D1%80%D0%B8%D0%BF%D1%82%D0%BE%D0%B2%D0%B0%D0%BB%D1%8E%D1%82%D1%8B/wax"
     COINGECKO_TLM_PAGE = "https://www.coingecko.com/ru/%D0%9A%D1%80%D0%B8%D0%BF%D1%82%D0%BE%D0%B2%D0%B0%D0%BB%D1%8E%D1%82%D1%8B/alien-worlds"

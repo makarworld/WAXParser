@@ -1,5 +1,7 @@
+import re
 import time
 from datetime import datetime
+from bs4 import BeautifulSoup as bs
 from load_data import to_dict, loadInJSON
 
 class _utils:
@@ -20,6 +22,33 @@ class _utils:
         self.URL = URL
         self.Payload = Payload
         
+
+    def is_nft_dropped(self, account):
+        url = "https://wax.greymass.com/v1/chain/get_table_rows"
+        _json = {
+            "json":True,
+            "code":"m.federation",
+            "scope":"m.federation",
+            "table":"claims",
+            "table_key":"",
+            "lower_bound": account,
+            "upper_bound":None,
+            "index_position":1,
+            "key_type":"",
+            "limit":"100",
+            "reverse":False,
+            "show_payer":False
+        }
+        res = self.scraper.post(url, json=_json)
+        if res.status_code != 200:
+            return {'success': False, 'res': res}
+        else:
+            decoded = res.json()
+            drop = decoded['rows'][0]['template_ids'] if decoded['rows'][0]['miner'] == account else None
+            if drop:
+                return {'success': True, 'isdrop': True, 'items': drop}
+            return {'success': True, 'isdrop': False, 'items': []}
+            
 
     def get_user_ids(self):
         ids = [int(x.strip()) for x in self.settings['user_id'].split(',') if x.strip() != '' and x.strip().isdigit()]
@@ -107,7 +136,7 @@ class _utils:
     def get_token_price(self, url):
         response = self.scraper.get(url)
         response_json = response.json()
-        return response_json['market_data']['current_price']['usd'], response_json['market_data']['current_price']['rub']
+        return float(response_json['price']['USD']), float(response_json['price']['RUB'])
 
     def get_price(self, template: str) -> float:
         params = self.Payload.get_price_params.copy()
@@ -154,8 +183,9 @@ class _utils:
             return {'success': False, 'response': asset_response}
 
     def get_resourses(self, name: str) -> dict:
-        response = self.scraper.get(self.URL.RESOURSES, json={"account_name": name}).json()
+        response = self.scraper.get(self.URL.RESOURSES, json={"account_name": name})
         try:
+            response = response.json()
             cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
             net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
             ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
@@ -172,7 +202,7 @@ class _utils:
                 'cpu_staked': cpu_staked
             }
         except Exception as e:
-            self.log(f'Похоже аккаунт {name} вписан неверно или не существует ({e})', w=False)
+            self.log(f'Error getting account resources: {name} ({e})')
             return {
                 'cpu': 0,
                 'net': 0,
