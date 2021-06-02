@@ -104,7 +104,7 @@ def run():
                     tokens=accounts_dumb[account]['tokens']
                 )
             
-            tokens_last = {'tokens': [{'symbol': x, 'amount': y } for x, y in accounts_dumb[account]['tokens'].items()]}
+            tokens_last = accounts_dumb[account]['tokens']
             err, tokens = _u.get_tokens(scraper, account, tokens_last)
             if err:
                 _log.error(err)
