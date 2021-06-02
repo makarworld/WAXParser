@@ -1,7 +1,6 @@
-import re
 import time
 from datetime import datetime
-from bs4 import BeautifulSoup as bs
+
 from load_data import to_dict, loadInJSON
 
 class _utils:
@@ -22,6 +21,52 @@ class _utils:
         self.URL = URL
         self.Payload = Payload
         
+
+    def get_tokens(self, scraper, account, last_data):
+        link = self.URL.TOKENS.format(account)
+        for _ in range(3):
+            try:
+                tokens_response = scraper.get(link, timeout=10)
+                if tokens_response.status_code == 200:
+                    tokens_response = tokens_response.json()
+                    return '', [{x['symbol']: x['amount'] for x in tokens_response}][0]
+                else: 
+                    raise Exception(f"url: {link} | status_code: {tokens_response.status_code}")
+                
+            except Exception as e:
+                time.sleep(5)
+                continue
+        else:
+            return f"[{account}] Fail to fetch tokens", last_data
+        
+    
+    def get_nfts(self, scraper, account, last_data):
+        link = self.URL.NFTS.format(account)
+        for _ in range(3):
+            try:
+                nfts_response = scraper.get(link, timeout=10)
+                if nfts_response.status_code == 200:
+                    nfts_response = nfts_response.json()
+                    return '', list(self.get_assets(nfts_response).keys())
+                else: 
+                    raise Exception(f"url: {link} | status_code: {nfts_response.status_code}")
+                
+            except Exception as e:
+                time.sleep(5)
+                continue
+        else:
+            return f"[{account}] Fail to fetch NFT", last_data
+
+    def is_time_to_notif(self, limits_notifications: dict, item: str, account: str, timeout: int):
+        if limits_notifications[item].get(account):
+            if time.time() - limits_notifications[item][account] >= int(timeout):
+                # timeout done! 
+                limits_notifications[item][account] = int(time.time())
+                return limits_notifications, True
+        else:
+            limits_notifications[item][account] = int(time.time())
+            return limits_notifications, True
+        return limits_notifications, False
 
     def is_nft_dropped(self, account):
         url = "https://wax.greymass.com/v1/chain/get_table_rows"
@@ -183,18 +228,15 @@ class _utils:
             return {'success': False, 'response': asset_response}
 
     def get_resourses(self, name: str) -> dict:
-        response = self.scraper.get(self.URL.RESOURSES, json={"account_name": name})
+        response = self.scraper.get(self.URL.RESOURSES.replace('{account}', name))
         try:
-            response = response.json()
-            cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
-            net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
-            ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
+            response = response.json()['data']
+            cpu = round(response['cpu']['used'] / response['cpu']['max'] * 100, 2)
+            net = round(response['net']['used'] / response['net']['max'] * 100, 2)
+            ram = round(response['ram']['usage'] / response['ram']['quota'] * 100, 2)
             
-            if response.get("self_delegated_bandwidth"):
-                cpu_staked = round(float(response['self_delegated_bandwidth']['cpu_weight'][:-4]), 2)
-            else:
-                cpu_staked = 0
-                
+            cpu_staked = round(float(response['balance']['selfStaked']), 2)
+
             return {
                 'cpu': cpu,
                 'net': net,

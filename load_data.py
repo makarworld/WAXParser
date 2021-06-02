@@ -1,7 +1,6 @@
 # module for load data in json, yami, txt
 import os
 import json
-import time
 
 """
 # Usage: example
@@ -14,7 +13,21 @@ loadInJSON:
     ;; // return dict with your json data.
 
 """
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+    
+    def __getattr__(self, item):
+        return None
 
+    def __getitem__(self, item):
+        return self.get(item)
+    
+    def __setitem__(self, item, value):
+        self.__dict__[item] = value
+    
+    def get(self, key):
+        return self.__dict__.get(key)
 
 def check_exists(name: str, create: bool = False, create_data: str = ''):
         if not os.path.exists(name):
@@ -171,5 +184,8 @@ def to_bool(string: str) -> bool:
         return bool(string)
 
 if __name__ == '__main__':
-    l = loadInTxt()
-    print(l.get('test.txt'))
+    t = {'abs': 24, 'time': -1}
+    s = Struct(**t)
+
+    #l = loadInTxt()
+    #print(l.get('test.txt'))

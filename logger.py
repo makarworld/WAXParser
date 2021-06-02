@@ -8,9 +8,10 @@ class logger:
         self.file = file
     
     def get_logger(self):
+        FORMAT = '%(asctime)s | %(levelname)s:%(name)s: %(message)s'
         self.log = logging.getLogger(self.name)
         _level = eval(f"logging.{self.level}")
-        logging.basicConfig(level=_level)
+        logging.basicConfig(format=FORMAT, datefmt='%H:%M:%S', level=_level)
         if self.file is not None:
             formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s', 
                                         '%m-%d-%Y %H:%M:%S')
