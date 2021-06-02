@@ -263,7 +263,7 @@ def run():
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
 
-            log(f"{account} fetched.")
+            #log(f"{account} fetched.")
             
             # NFT DROP 
             drops = _u.is_nft_dropped(account)
