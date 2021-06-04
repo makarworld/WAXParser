@@ -86,15 +86,18 @@ class _utils:
             "reverse":False,
             "show_payer":False
         }
-        res = self.scraper.post(url, json=_json)
-        if res.status_code != 200:
-            return {'success': False, 'res': res}
-        else:
-            decoded = res.json()
-            drop = decoded['rows'][0]['template_ids'] if decoded['rows'][0]['miner'] == account else None
-            if drop:
-                return {'success': True, 'isdrop': True, 'items': drop}
-            return {'success': True, 'isdrop': False, 'items': []}
+        try:
+            res = self.scraper.post(url, json=_json)
+            if res.status_code != 200:
+                return {'success': False, 'res': res}
+            else:
+                decoded = res.json()
+                drop = decoded['rows'][0]['template_ids'] if decoded['rows'][0]['miner'] == account else None
+                if drop:
+                    return {'success': True, 'isdrop': True, 'items': drop}
+                return {'success': True, 'isdrop': False, 'items': []}
+        except:
+            return {'success': False, 'isdrop': False, 'items': []}
             
 
     def get_user_ids(self):
