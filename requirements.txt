@@ -2,3 +2,4 @@ cfscrape==2.1.1
 bs4==0.0.1
 aiogram==2.11.2
 requests==2.25.1
+pathlib==1.0.1

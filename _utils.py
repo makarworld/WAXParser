@@ -22,6 +22,13 @@ class _utils:
         self.Payload = Payload
         
 
+    def get_name_by_template(self, template: str):
+        try:
+            res = self.scraper.get(self.URL.TEMPLATE_INFO.format(template)).json()
+            return res['data'][0]['name']
+        except:
+            return f"Undefined NFT card (template#{template})"
+
     def get_tokens(self, scraper, account, last_data):
         link = self.URL.TOKENS.format(account)
         for _ in range(3):

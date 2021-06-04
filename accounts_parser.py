@@ -279,7 +279,8 @@ def run(limits_notifications):
                         if inf:
                             inf = inf[0]['name']
                         else:
-                            inf = "Undefined NFT card"
+                            inf = _u.get_name_by_template(_drop)
+                            
                         if inf in info_drop.keys():
                             info_drop[inf] += 1
                         else:

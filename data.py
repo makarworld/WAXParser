@@ -11,9 +11,11 @@ class URL:
     GET_PRICE = "https://wax.api.atomicassets.io/atomicmarket/v1/sales"
     GET_WAX_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=wax'
     GET_TLM_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=alien-worlds'
+    TEMPLATE_INFO = "https://wax.api.atomicassets.io/atomicassets/v1/templates?ids={}&page=1&limit=100&order=desc&sort=created"
 
     COINGECKO_WAX_PAGE = "https://www.coingecko.com/ru/%D0%9A%D1%80%D0%B8%D0%BF%D1%82%D0%BE%D0%B2%D0%B0%D0%BB%D1%8E%D1%82%D1%8B/wax"
     COINGECKO_TLM_PAGE = "https://www.coingecko.com/ru/%D0%9A%D1%80%D0%B8%D0%BF%D1%82%D0%BE%D0%B2%D0%B0%D0%BB%D1%8E%D1%82%D1%8B/alien-worlds"
+
 class Payload:
     wax_token_payload = {
         'code': "eosio.token",
