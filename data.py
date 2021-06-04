@@ -38,7 +38,8 @@ class Payload:
     limits_notifications = {
         'cpu': {},
         'net': {},
-        'ram': {}
+        'ram': {},
+        'claim_nft': {}
     }
 
     ass_headers = {

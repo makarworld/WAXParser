@@ -39,7 +39,7 @@ base = baseUniversal('accounts.db')
 
 URL = _URL()
 Payload = _Payload()
-limits_notifications = Payload.limits_notifications.copy()
+limits_notifications = deepcopy(Payload.limits_notifications)
 settings = loadInTxt().get('settings.txt')
 settings = Struct(**settings)
 _u = _utils(settings, base, _log, log, scraper, URL, Payload)
@@ -87,7 +87,7 @@ notification(
     f"NFTs_notifications: {settings.nfts_notifications}</b>"
 )
 
-def run():
+def run(limits_notifications):
     while True:
         accounts = loadInStrings(clear_empty=True, separate=False).get('accounts.txt')
         accounts_dumb = _u.get_accounts()
@@ -261,7 +261,7 @@ def run():
                 if 'stake' in _res:
                     continue
                 if resourses[_res] > int(settings.get(_res+'_limit')):
-                    limits_notifications, is_time_res = _u.is_time_to_notif(limits_notifications, account, _res, settings['out_of_limit_timeout'])
+                    limits_notifications, is_time_res = _u.is_time_to_notif(limits_notifications, _res, account, settings['out_of_limit_timeout'])
                     if is_time_res:
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
@@ -285,7 +285,7 @@ def run():
                         else:
                             info_drop[inf] = 1
                             
-                    limits_notifications, is_time_drops = _u.is_time_to_notif(limits_notifications, account, 'claim_nft', settings.drops_notification_timeout)
+                    limits_notifications, is_time_drops = _u.is_time_to_notif(limits_notifications, 'claim_nft', account, settings.drops_notification_timeout)
                     if is_time_drops:
                         text = f'<b>Account {account} drop NFT in AlienWorlds</b>\n'
                         text += '\n'.join([f'<b>{x} - {y} шт.</b>' for x, y in info_drop.items()])
@@ -828,14 +828,14 @@ async def i_handler(message: types.Message):
         await message.reply(f"Error /setprice: {e}")
       
 # start thread
-def start():
+def start(limits_notifications):
     while True:
         try:
-            run()
+            run(limits_notifications)
         except Exception as e:
             _log.exception("MainError: ")
 if __name__ == '__main__':
-    Thread(target=start).start()
+    Thread(target=start, args=(limits_notifications,)).start()
     executor.start_polling(dp, skip_updates=True, loop=zalupa)
 """
 {
