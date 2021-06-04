@@ -28,12 +28,13 @@ class _utils:
             try:
                 tokens_response = scraper.get(link, timeout=10)
                 if tokens_response.status_code == 200:
-                    tokens_response = tokens_response.json()
+                    tokens_response = tokens_response.json()['tokens']
                     return '', [{x['symbol']: x['amount'] for x in tokens_response}][0]
                 else: 
                     raise Exception(f"url: {link} | status_code: {tokens_response.status_code}")
                 
             except Exception as e:
+                self._log.exception('TOKENS:')
                 time.sleep(5)
                 continue
         else:
@@ -52,6 +53,7 @@ class _utils:
                     raise Exception(f"url: {link} | status_code: {nfts_response.status_code}")
                 
             except Exception as e:
+                self._log.exception('NFTS:')
                 time.sleep(5)
                 continue
         else:
@@ -183,7 +185,33 @@ class _utils:
         response_json = response.json()
         return float(response_json['price']['USD']), float(response_json['price']['RUB'])
 
-    def get_price(self, template: str) -> float:
+    def get_price(self, template: str, name: str) -> float:
+        baseinfo = self.base.get_by('prices', ['template_id', template], args='all')
+        if baseinfo:
+            if self.settings.refresh_price is None:
+                self.settings.refresh_price = 3600
+                
+            if time.time() - int(baseinfo[0]['timestamp']) > int(self.settings.refresh_price):
+                price = self.fetch_template_price(template)
+                if price == 0:
+                    price = float(baseinfo[0]['price'])
+                else:
+                    self.base.edit_by('prices', ['template_id', template], price=price, timestamp=int(time.time()))
+                return price
+            else:
+                return float(baseinfo[0]['price'])
+        else:
+            price = self.fetch_template_price(template) 
+            self.base.add(
+                table='prices',
+                name=name,
+                template_id=template,
+                price=price,
+                timestamp=int(time.time())
+            )
+            return price
+                
+    def fetch_template_price(self, template: str) -> float:    
         params = self.Payload.get_price_params.copy()
         params['template_id'] = template
         while True:
@@ -282,6 +310,7 @@ class _utils:
             return accounts_dumb
 
     def split_text(t, limit=4048):
+        t = str(t)
         if len(t) > limit:
             text = t.split('\n')
             _text = ""

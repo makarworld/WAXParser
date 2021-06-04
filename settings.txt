@@ -8,4 +8,5 @@ net_limit: 1000
 ram_limit: 1000
 out_of_limit_timeout: 3600
 drops_notification_timeout: 3600
+refresh_price: 3600
 low_logging: true

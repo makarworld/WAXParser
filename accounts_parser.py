@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 from cfscrape import create_scraper
 
-from load_data import loadInStrings, loadInTxt, Struct
+from load_data import loadInStrings, loadInTxt, Struct, load_settings
 from logger import log_handler, logger
 from data import URL as _URL
 from data import Payload as _Payload
@@ -41,8 +41,8 @@ URL = _URL()
 Payload = _Payload()
 limits_notifications = Payload.limits_notifications.copy()
 settings = loadInTxt().get('settings.txt')
-_u = _utils(settings, base, _log, log, scraper, URL, Payload)
 settings = Struct(**settings)
+_u = _utils(settings, base, _log, log, scraper, URL, Payload)
 
 
 bot = Bot(token=settings.bot_token)
@@ -68,6 +68,7 @@ async def send_welcome(text):
             
 async def send_reply(text, user_id):
     try:
+        text = str(text)
         if len(text) > 4096:
             for x in _u.split_text(text):
                 await bot.send_message(user_id, x, parse_mode='html', disable_web_page_preview=True)
@@ -93,7 +94,9 @@ def run():
             
         for account in accounts:
             settings = loadInTxt().get('settings.txt')
-            settings = Struct(**settings)
+            settings = load_settings(settings)
+            if settings.timeout < 30:
+                settings.timeout = 30
             time.sleep(int(settings.timeout))
             if account not in accounts_dumb.keys():
                 accounts_dumb[account] = deepcopy(Payload.defoult_account_data)
@@ -212,7 +215,7 @@ def run():
                         parsed = _u.fetch_asset(ass)
                         if not parsed['success']:
                             continue
-                        price = _u.get_price(parsed['template_id'])
+                        price = _u.get_price(parsed['template_id'], parsed['name'])
                         body += f"<b>Asset: {ass}</b>\n"\
                                 f"<b>Collection name: {parsed['collection_name']}</b>\n"\
                                 f"<b>Name: {parsed['name']}</b>\n"\
@@ -446,7 +449,7 @@ async def p_handler(message: types.Message):
                         ass_names[parsed['name']]['count'] += 1
                 
                 for x, y in ass_names.items():
-                    price = _u.get_price( y['info']['template_id'] )
+                    price = _u.get_price( y['info']['template_id'], x )
                     if y['count'] != 1:
                         text += f"<b>{x} - {y['count']} шт. {price} WAX (~{round(price*y['count'], 2)} WAX)</b>\n"
                     else:
@@ -522,7 +525,8 @@ async def help_handler(message: types.Message):
             "/timer start — <b>Запустить таймер для подсчета токенов</b>\n"\
             "/timer — <b>Информация о текущем таймере</b>\n"\
             "/timer clear — <b>Сбросить таймер</b>\n"\
-            "/timer end — <b>Показать результат подсчета токенов и сбросить таймер</b>\n",
+            "/timer end — <b>Показать результат подсчета токенов и сбросить таймер</b>\n"\
+            "/setprice {price} {item} — <b>Установить цену price вещи item</b>\n",
             parse_mode='html')
     except Exception as e:
         _log.exception("Error /help: ")
@@ -611,7 +615,7 @@ async def get_cost_handler(message: types.Message):
                 if all_items.get(parsed['name']):
                     all_items[parsed['name']]['count'] += 1
                 else:
-                    price = _u.get_price(parsed['template_id'])
+                    price = _u.get_price(parsed['template_id'], parsed['name'])
                     all_items[parsed['name']] = {'count': 1, 'price': price}
                     
         wax_sum = sum([y['count']*y['price'] for x, y in all_items.items()])
@@ -800,7 +804,28 @@ async def help_handler(message: types.Message):
         _log.exception("Error /help: ")
         await message.reply(f"Error /help: {e}")
 
-
+# command /i {wax_name}
+@dp.message_handler(commands=['setprice', 'sp'])
+async def i_handler(message: types.Message):
+    if message['from']['id'] not in _u.get_user_ids():
+        return
+    
+    try:
+        price = message.text.split()[1]
+        if not price.replace('.', '').isdigit():
+            await message.reply('Цена должна быть числом')
+            return
+        cmdlen = len(' '.join(message.text.split()[:2]))+1
+        item = message.text[cmdlen:]
+        inbase = base.get_by('prices', ['name', item], args='all')
+        if not inbase:
+            await message.reply(f'Вещи с названием "{item}" не найдено в базе. (Напишите /get_cost чтобы спарсить предметы')    
+        else:
+            base.edit_by('prices', ['name', item], price=price, timestamp=int(time.time()))
+            await message.reply(f'Цена предмета "{item}" обновлена')
+    except Exception as e:
+        _log.exception("Error /setprice: ")
+        await message.reply(f"Error /setprice: {e}")
       
 # start thread
 def start():

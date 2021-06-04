@@ -42,6 +42,12 @@ class baseUniversal():
                     'name',
                     'assets',
                     'tokens'
+                ],
+                'prices': [
+                    'name',
+                    'template_id',
+                    'price',
+                    'timestamp'
                 ]
             }
 

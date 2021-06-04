@@ -16,7 +16,10 @@ loadInJSON:
 class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
-    
+        for k, v in self.__dict__.items():
+            if type(v) == dict:
+                self.__dict__[k].update(v)
+                
     def __getattr__(self, item):
         return None
 
@@ -28,6 +31,28 @@ class Struct:
     
     def get(self, key):
         return self.__dict__.get(key)
+
+def load_settings(settings):
+    struct = Struct(**settings)
+    types = {
+        'timeout': [int, 30],
+        'cpu_limit': [int, 100],
+        'net_limit': [int, 100],
+        'ram_limit': [int, 100],
+        'out_of_limit_timeout': [int, 3600],
+        'drops_notification_timeout': [int, 3600],
+        'refresh_price': [int, 3600]
+    }
+    
+    for k,v in types.items():
+        if k in struct.__dict__.keys():
+            try:
+                struct[k] = v[0](struct[k])
+            except:
+                struct[k] = v[1]
+        else:
+            struct[k] = v[1]
+    return struct
 
 def check_exists(name: str, create: bool = False, create_data: str = ''):
         if not os.path.exists(name):
@@ -184,8 +209,9 @@ def to_bool(string: str) -> bool:
         return bool(string)
 
 if __name__ == '__main__':
-    t = {'abs': 24, 'time': -1}
+    t = {'abs': 24, 'time': -1, 'sd': {'get': True}}
     s = Struct(**t)
+    print(s.__dict__)
 
     #l = loadInTxt()
     #print(l.get('test.txt'))
