@@ -10,4 +10,28 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 
 Новости обновлений: https://t.me/WAXParser
 
-Чат: https://t.me/joinchat/aqHEEsgsbZYwOG
+Чат: https://t.me/WAXParserChat
+
+# Installation Windows
+
+Вы должны установить python3.8, открыть cmd в папке с проектом и прописать следующие команды:
+
+pip install -r requirements.txt
+
+python accounts_parser.py
+
+# Installation Ubuntu
+
+sudo apt install python3.8
+
+sudo apt install git
+
+sudo apt install python3-pip
+
+git clone https://github.com/makarworld/WAXParser
+
+cd WAXParser
+
+pip3 install -r requirements.txt
+
+python3 accounts_parser.py
