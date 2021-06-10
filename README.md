@@ -14,7 +14,7 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 
 # Installation Windows
 
-Вы должны установить python3.8, открыть cmd в папке с проектом и прописать следующие команды:
+Вы должны установить python3.8 (поставить галочку ADD TO PATH !!), открыть cmd в папке с проектом и прописать следующие команды:
 
 pip install -r requirements.txt
 
