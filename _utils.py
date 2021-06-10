@@ -108,7 +108,7 @@ class _utils:
             
 
     def get_user_ids(self):
-        ids = [int(x.strip()) for x in self.settings['user_id'].split(',') if x.strip() != '' and x.strip().isdigit()]
+        ids = [int(x.strip()) for x in self.settings['user_id'].split(',') if x.strip() != '' and x.replace('-', '').strip().isdigit()]
         if not ids:
             self._log.error('UserIdError: invalid user_id. User_id must be a digit (write to @get_user_id_bot)')
         return ids
