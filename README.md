@@ -14,11 +14,11 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 
 # Installation Windows
 
-Вы должны установить python3.8 https://www.python.org/downloads/release/python-382/ (поставить галочку ADD TO PATH !!), открыть cmd в папке с проектом и прописать следующие команды:
+1. Вы должны установить python3.8 https://www.python.org/downloads/release/python-382/ (поставить галочку ADD TO PATH !!)
 
-pip install -r requirements.txt
+2. Запустить файл "install pachages.bat"
 
-python accounts_parser.py
+3. Запустить файл py_start.bat
 
 # Installation Ubuntu
 
