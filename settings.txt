@@ -1,12 +1,12 @@
+version: v3.0
 user_id: 
-bot_token: 
-timeout: 0
+bot_token:
+timeout: 10
 tokens_notifications: true
 nfts_notifications: true
-cpu_limit: 1000
-net_limit: 1000
-ram_limit: 1000
+cpu_limit: 10000
+net_limit: 100
+ram_limit: 100
 out_of_limit_timeout: 3600
 drops_notification_timeout: 3600
 refresh_price: 3600
-low_logging: true

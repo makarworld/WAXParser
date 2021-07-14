@@ -1,0 +1,6 @@
+parser.log
+timer.json
+db/accounts.db
+db/accounts.txt
+packages/__pycache__/
+settings.txt
