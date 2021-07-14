@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 from copy import deepcopy
 
-from .load_data import to_dict, loadInJSON, loadInTxt
+from .load_data import loadInStrings, to_dict, loadInJSON
 
 def timer_decorator(func):
     def wrapped(*args, **kwargs):
@@ -324,7 +324,7 @@ class _utils:
         )
 
     def get_names(self, path):
-        return loadInTxt(separate=False).get(path)
+        return loadInStrings(separate=False).get(path)
         
 
     def get_accounts(self, whitelist: list=[], blacklist: list=[]):

@@ -1,6 +1,6 @@
 parser.log
 timer.json
-db/accounts.db
-db/accounts.txt
+db/accounts1.db
+db/accounts1.txt
 packages/__pycache__/
 settings.txt

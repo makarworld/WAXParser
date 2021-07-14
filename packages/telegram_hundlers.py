@@ -99,7 +99,8 @@ class telegramHundlers:
     # command /info            
     @telegram_decorator
     async def info_handler(self, message: types.Message):
-        accounts_dumb = self._u.get_accounts()
+        whitelist = self._u.get_names()
+        accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
         nfts = sum([len(accounts_dumb[x]['assets']) for x in accounts_dumb.keys()])
         text += f"<b>NFTs: {nfts}</b>\n"
@@ -120,7 +121,7 @@ class telegramHundlers:
     @telegram_decorator
     async def accs_handler(self, message: types.Message):
         accounts = loadInStrings(clear_empty=True, separate=False).get(self.accounts_path)
-        accounts_dumb = self._u.get_accounts()
+        accounts_dumb = self._u.get_accounts(whitelist=accounts)
         text = ""
         for i, x in enumerate(accounts):
             text += f"[{i+1}] <code>{x}</code>"
@@ -157,7 +158,8 @@ class telegramHundlers:
             await self.send_reply(message['from']['id'], "Неверная команда.\nПример: /p namee.wam")
         else:
             c, name = message["text"].split()
-            accounts_dumb = self._u.get_accounts()
+            whitelist = self._u.get_names()
+            accounts_dumb = self._u.get_accounts(whitelist=whitelist)
             if name not in accounts_dumb.keys():
                 await self.send_reply(message['from']['id'], "Нет информации.")
             else:
@@ -270,7 +272,8 @@ class telegramHundlers:
     async def i_handler(self, message: types.Message):
         c, acc = message['text'].split()
         
-        accounts_dumb = self._u.get_accounts()
+        whitelist = self._u.get_names()
+        accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         if accounts_dumb.get(acc):
             _ = 0
             _tools = []
@@ -319,7 +322,8 @@ class telegramHundlers:
     @telegram_decorator
     async def get_cost_handler(self, message: types.Message):
         await message.reply('Загрузка...\nВремя вычислений зависит от количества аккаунтов, обычно около 1-3 минут.')
-        accounts_dumb = self._u.get_accounts()
+        whitelist = self._u.get_names()
+        accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         all_items = {}
         
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
@@ -423,7 +427,8 @@ class telegramHundlers:
             await message.reply('Query Not Found.')
         else:
             # {item: [accs]}
-            accounts_dumb = self._u.get_accounts()
+            whitelist = self._u.get_names()
+            accounts_dumb = self._u.get_accounts(whitelist=whitelist)
             all_items = {}
             
             for k, v in accounts_dumb.items():
@@ -532,7 +537,7 @@ class telegramHundlers:
             await message.reply(f'Цена предмета "{item}" обновлена')
 
 
-    # Check NFT in AlienWorld
+    # Check AETHER/H in RPlanet
     # /rplanet /rp
     @telegram_decorator
     async def rplanetInfo_hundler(self, message: types.Message):
