@@ -58,6 +58,14 @@ settings = loadInTxt().get(settings_path)
 settings = Struct(**settings)
 _u = _utils(settings, base, _log, log, scraper, URL, Payload)
 
+# validate settings
+if settings.bot_token is None or\
+    settings.user_id is None: 
+    log('Fill settings.txt and restart')
+    input()
+    quit()
+
+
 
 # telegram
 bot = Bot(token=settings.bot_token)

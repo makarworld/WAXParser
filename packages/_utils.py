@@ -370,14 +370,14 @@ class _utils:
 
     @timer_decorator
     def get_timer(self):
-        data = loadInJSON().get('timer.json')
+        data = loadInJSON().get('./db/timer.json')
         if not data:
             data = {
                 'start_timestamp': 0,
                 'balances': {},
                 'nfts': []
             }
-        loadInJSON().save('timer.json', data)
+        loadInJSON().save('./db/timer.json', data)
         return data
 
     @timer_decorator
@@ -385,7 +385,7 @@ class _utils:
         timer = self.get_timer()
         timer['start_timestamp'] = int(time.time())
         timer['balances'] = {}
-        loadInJSON().save('timer.json', timer)
+        loadInJSON().save('./db/timer.json', timer)
         return timer
     
     @timer_decorator
@@ -396,12 +396,12 @@ class _utils:
         else:
             timer['balances'][currency] = value
             
-        loadInJSON().save('timer.json', timer)
+        loadInJSON().save('./db/timer.json', timer)
         return timer
     
     @timer_decorator
     def zero_timer(self):
-        loadInJSON().save('timer.json', {})
+        loadInJSON().save('./db/timer.json', {})
 
     @timer_decorator
     def show_time(self, time):
