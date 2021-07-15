@@ -1,4 +1,5 @@
 parser.log
+db/timer1.json
 db/accounts1.db
 db/accounts1.txt
 packages/__pycache__/
