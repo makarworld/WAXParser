@@ -41,7 +41,7 @@ settings_path = os.path.realpath('.') + '/settings.txt'
 accounts_path = os.path.realpath('.') + '/db/accounts.txt'
 db_path = os.path.realpath('.') + '/db/accounts.db'
 log_path = os.path.realpath('.') + '/parser.log'
-
+timer_path = os.path.realpath('.') + '/db/timer.json'
 
 # 
 scraper = create_scraper()
@@ -259,4 +259,5 @@ if __name__ == '__main__':
     hundlers = telegramHundlers(dp, zalupa, send_reply, _u, base, executor, settings_path, accounts_path)
     hundlers.register_all_methods()
     hundlers.run()
-
+    
+# кто прочитал тот сдохнет :)

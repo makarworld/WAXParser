@@ -1,6 +1,6 @@
-version: v3.0
+version: v3.0.1
 user_id: 
-bot_token:
+bot_token: 
 timeout: 10
 tokens_notifications: true
 nfts_notifications: true

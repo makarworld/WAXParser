@@ -14,11 +14,11 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 
 # Installation Windows
 
-1. Вы должны установить python3.8 https://www.python.org/downloads/release/python-382/ (поставить галочку ADD TO PATH !!)
+1. Установить python3.8 https://www.python.org/downloads/release/python-382/ (поставить галочку ADD TO PATH !!)
 
-2. Запустить файл "install pachages.bat"
+2. Выполнить команду pip install -r requirements.txt в папке проекта
 
-3. Запустить файл py_start.bat
+3. Запустить файл main.py
 
 # Installation Ubuntu
 
@@ -34,4 +34,4 @@ cd WAXParser
 
 pip3 install -r requirements.txt
 
-python3 accounts_parser.py
+python3 main.py

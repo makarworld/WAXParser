@@ -99,7 +99,7 @@ class telegramHundlers:
     # command /info            
     @telegram_decorator
     async def info_handler(self, message: types.Message):
-        whitelist = self._u.get_names()
+        whitelist = self._u.get_names(self.accounts_path)
         accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         text = f"<b>Accounts: {len(accounts_dumb.keys())}</b>\n"
         nfts = sum([len(accounts_dumb[x]['assets']) for x in accounts_dumb.keys()])
@@ -158,7 +158,7 @@ class telegramHundlers:
             await self.send_reply(message['from']['id'], "Неверная команда.\nПример: /p namee.wam")
         else:
             c, name = message["text"].split()
-            whitelist = self._u.get_names()
+            whitelist = self._u.get_names(self.accounts_path)
             accounts_dumb = self._u.get_accounts(whitelist=whitelist)
             if name not in accounts_dumb.keys():
                 await self.send_reply(message['from']['id'], "Нет информации.")
@@ -272,7 +272,7 @@ class telegramHundlers:
     async def i_handler(self, message: types.Message):
         c, acc = message['text'].split()
         
-        whitelist = self._u.get_names()
+        whitelist = self._u.get_names(self.accounts_path)
         accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         if accounts_dumb.get(acc):
             _ = 0
@@ -322,7 +322,7 @@ class telegramHundlers:
     @telegram_decorator
     async def get_cost_handler(self, message: types.Message):
         await message.reply('Загрузка...\nВремя вычислений зависит от количества аккаунтов, обычно около 1-3 минут.')
-        whitelist = self._u.get_names()
+        whitelist = self._u.get_names(self.accounts_path)
         accounts_dumb = self._u.get_accounts(whitelist=whitelist)
         all_items = {}
         
@@ -427,7 +427,7 @@ class telegramHundlers:
             await message.reply('Query Not Found.')
         else:
             # {item: [accs]}
-            whitelist = self._u.get_names()
+            whitelist = self._u.get_names(self.accounts_path)
             accounts_dumb = self._u.get_accounts(whitelist=whitelist)
             all_items = {}
             

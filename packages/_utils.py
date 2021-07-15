@@ -7,13 +7,13 @@ from .load_data import loadInStrings, to_dict, loadInJSON
 
 def timer_decorator(func):
     def wrapped(*args, **kwargs):
-        if not os.path.exists('timer.json'):
-            with open('timer.json', 'w') as f: f.write('{}')
+        if not os.path.exists('./db/timer.json'):
+            with open('./db/timer.json', 'w') as f: f.write('{}')
         try:
-            data = loadInJSON().get('timer.json')
+            data = loadInJSON().get('./db/timer.json')
         except Exception as e:
-            print('timer.json error: %s' % e)
-            with open('timer.json', 'w') as f: f.write('{}')
+            print('./db/timer.json error: %s' % e)
+            with open('./db/timer.json', 'w') as f: f.write('{}')
             
         return func(*args, **kwargs)
 
@@ -290,6 +290,12 @@ class _utils:
             cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
             net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
             ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
+            
+            #wax_to_cpu = response['cpu_limit']['max'] / float(response['total_resources']['cpu_weight'][:-4])
+            #free_wax = (response['cpu_limit']['max'] - response['cpu_limit']['used']) / wax_to_cpu
+            #print(free_wax)
+            
+            #free_wax = ( 1 - round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2) ) * float(response['total_resources']['cpu_weight'][:-4])
             
             if response['self_delegated_bandwidth'] is not None:
                 cpu_staked = round(float(response['self_delegated_bandwidth']['cpu_weight'][:-4]), 2)
