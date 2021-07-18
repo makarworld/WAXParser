@@ -155,13 +155,13 @@ class telegramHundlers:
     @telegram_decorator
     async def p_handler(self, message: types.Message):
         if len(message["text"].split()) != 2: 
-            await self.send_reply(message['from']['id'], "Неверная команда.\nПример: /p namee.wam")
+            await self.send_reply("Неверная команда.\nПример: /p namee.wam", message['from']['id'])
         else:
             c, name = message["text"].split()
             whitelist = self._u.get_names(self.accounts_path)
             accounts_dumb = self._u.get_accounts(whitelist=whitelist)
             if name not in accounts_dumb.keys():
-                await self.send_reply(message['from']['id'], "Нет информации.")
+                await self.send_reply("Нет информации.", message['from']['id'] )
             else:
                 await message.reply("Загрузка...\nПодождите пока все предметы спарсятся.\nОбычно занимает от 5 секунд до 3 минут.")
                 account_summ_usd = 0
@@ -223,7 +223,7 @@ class telegramHundlers:
         
         if len(message['text'].split()) != 2:
             c = message['text']
-            for _type in ['nfts', 'tokens']:
+            for _type in ['nfts', 'tokens', 'drops']:
                 to = True if c == '/on' else False
                 if settings.get(_type + "_notifications"):
                     settings.__dict__[_type + "_notifications"] = str(to).lower()

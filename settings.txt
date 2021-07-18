@@ -1,9 +1,10 @@
-version: v3.0.2
+version: v3.0.3
 user_id: 
 bot_token: 
 timeout: 10
 tokens_notifications: true
 nfts_notifications: true
+drops_notifications: true
 cpu_limit: 10000
 net_limit: 100
 ram_limit: 100

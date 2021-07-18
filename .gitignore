@@ -2,5 +2,6 @@ parser.log
 db/timer1.json
 db/accounts1.db
 db/accounts1.txt
+db/accounts2dumb.db
 packages/__pycache__/
 settings.txt

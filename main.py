@@ -228,32 +228,32 @@ def parser(settings, limits_notifications):
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
 
             # NFT DROP IN AlienWorlds
-            drops = {'success': False}#_u.is_nft_dropped(account)
-            if drops['success']:
-                if drops['isdrop']:
-                    # nft dropped
-                    info_drop = {}
-                    for _drop in drops['items']:
-                        inf = base.get_by('assets', ['template_id', _drop], ['name'])
-                        if inf:
-                            inf = inf[0]['name']
-                        else:
-                            inf = _u.get_name_by_template(_drop)
-                            
-                        if inf in info_drop.keys():
-                            info_drop[inf] += 1
-                        else:
-                            info_drop[inf] = 1
-                            
-                    limits_notifications, is_time_drops = _u.is_time_to_notif(limits_notifications, 'claim_nft', account, settings.drops_notification_timeout)
-                    if is_time_drops:
-                        text = f'<b>Account {account} drop NFT in AlienWorlds</b>\n'
-                        text += '\n'.join([f'<b>{x} - {y} шт.</b>' for x, y in info_drop.items()])
-                        notification(text)
-                        log(text)
-            else:
-                pass
-                #_log.error(f"[{account}] Fail to fetch drops")
+            if settings.drops_notification == 'true':
+                drops = _u.is_nft_dropped(account)
+                if drops['success']:
+                    if drops['isdrop']:
+                        # nft dropped
+                        info_drop = {}
+                        for _drop in drops['items']:
+                            inf = base.get_by('assets', ['template_id', _drop], ['name'])
+                            if inf:
+                                inf = inf[0]['name']
+                            else:
+                                inf = _u.get_name_by_template(_drop)
+                                
+                            if inf in info_drop.keys():
+                                info_drop[inf] += 1
+                            else:
+                                info_drop[inf] = 1
+                                
+                        limits_notifications, is_time_drops = _u.is_time_to_notif(limits_notifications, 'claim_nft', account, settings.drops_notification_timeout)
+                        if is_time_drops:
+                            text = f'<b>Account {account} drop NFT in AlienWorlds</b>\n'
+                            text += '\n'.join([f'<b>{x} - {y} шт.</b>' for x, y in info_drop.items()])
+                            notification(text)
+                            log(text)
+                else:
+                    _log.error(f"[{account}] Fail to fetch drops")
                 
 # start thread
 def start(settings, limits_notifications):
