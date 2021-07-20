@@ -1,19 +1,22 @@
-from packages.telegram_hundlers import telegramHundlers
-from aiogram import Bot, Dispatcher, executor
-import asyncio
-from threading import Thread
-import time
-from copy import deepcopy
-from cfscrape import create_scraper
-import os
+try:
+    from packages.telegram_hundlers import telegramHundlers
+    from aiogram import Bot, Dispatcher, executor
+    import asyncio
+    from threading import Thread
+    import time
+    from copy import deepcopy
+    from cfscrape import create_scraper
+    import os
 
-from packages.load_data import loadInStrings, loadInTxt, Struct, load_settings
-from packages.logger import log_handler, logger
-from packages.data import URL as _URL
-from packages.data import Payload as _Payload
-from packages.mw_sql import baseUniversal
-from packages._utils import _utils
-from packages.telegram_hundlers import telegramHundlers
+    from packages.load_data import loadInStrings, loadInTxt, Struct, load_settings
+    from packages.logger import log_handler, logger
+    from packages.data import URL as _URL
+    from packages.data import Payload as _Payload
+    from packages.mw_sql import baseUniversal
+    from packages._utils import _utils
+    from packages.telegram_hundlers import telegramHundlers
+except ImportError as e:
+    print(f"Import error: {e}")
 banner = """
       _______________________________________________________________________
      |                                                                       |
