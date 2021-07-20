@@ -16,7 +16,12 @@ try:
     from packages._utils import _utils
     from packages.telegram_hundlers import telegramHundlers
 except ImportError as e:
-    print(f"Import error: {e}")
+    print(f"ImportError: {e}")
+    print("Установите библиотеки и попробуйте снова.")
+    print("**Запустите файл install_packages.bat в папке install чтобы автоматически установить библиотеки")
+    input()
+    quit()
+    
 banner = """
       _______________________________________________________________________
      |                                                                       |
