@@ -107,6 +107,10 @@ class loadInStrings(LoadObj):
             
         return data
 
+    def save(self, name: str, data: list):
+        with open(name, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(data))
+
 class loadInYami:
     pass
 

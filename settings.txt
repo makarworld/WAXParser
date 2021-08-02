@@ -1,4 +1,4 @@
-version: v3.0.5
+version: v3.0.6
 user_id: 
 bot_token: 
 timeout: 10

@@ -75,7 +75,8 @@ class telegramHundlers:
         self.reg(self.timer_handler, commands=['timer', 't'])
         self.reg(self.sp_handler, commands=['setprice', 'sp'])
         self.reg(self.rplanetInfo_hundler, commands=['rplanet', 'rp'])
-        
+        self.reg(self.adddel_hundler, commands=['add', 'del'])
+        #adddel_hundler
         
     def run(self):
         self.executor.start_polling(self.dispatcher, skip_updates=True, loop=self.loop)  
@@ -557,3 +558,36 @@ class telegramHundlers:
             log(f"{x}: {acc_info['total_aether_in_hour']} AETHER/H")
         text += f"\n<b>Total: {round(s, 2)} <i>AETHER/H</i></b>"
         await self.send_reply(text, message['from']['id'])
+        
+    # /add /del
+    @telegram_decorator
+    async def adddel_hundler(self, message: types.Message):
+        try:
+            _, acc = message.text.split()
+        except Exception as e:
+            return {'type': 'error', 'message': f'fail with parse account name: {e}'}
+        
+            
+        
+        if message.text.startswith('/add'):
+            l = loadInStrings(separate=False)
+            accs = l.get('./db/accounts.txt')
+            if acc in accs:
+                return {'type': 'error', 'message': 'Account already exists'}
+            else:
+                accs.append(acc)
+                l.save('./db/accounts.txt', accs)
+                await message.reply('Account added!')
+                
+        elif message.text.startswith('/del'):
+            l = loadInStrings(separate=False)
+            accs = l.get('./db/accounts.txt')
+            if acc in accs:
+                accs.remove(acc)
+                l.save('./db/accounts.txt', accs)
+                await message.reply('Account removed!')
+            else:
+                return {'type': 'error', 'message': 'Account is not exists'}
+                
+            
+            

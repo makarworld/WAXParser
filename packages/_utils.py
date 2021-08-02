@@ -308,7 +308,7 @@ class _utils:
                 'cpu_staked': cpu_staked
             }
         except Exception as e:
-            self._log.exception(f'Error to fetch resources: {name} ({e}) {response}')
+            self._log.exception(f'Error to fetch resources: {name} ({e})')
             return {
                 'cpu': 0,
                 'net': 0,
