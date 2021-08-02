@@ -584,10 +584,19 @@ class telegramHundlers:
         elif message.text.startswith('/del'):
             l = loadInStrings(separate=False)
             accs = l.get('./db/accounts.txt')
+            if acc == 'all':
+                l.save('./db/accounts.txt', [])
+                for a in accs:
+                    self.base.edit_by('accounts', ['name', a], assets=[], tokens={})
+                await message.reply('All accounts have been removed!')
+                return
+                
             if acc in accs:
                 accs.remove(acc)
                 l.save('./db/accounts.txt', accs)
+                self.base.edit_by('accounts', ['name', acc], assets=[], tokens={})
                 await message.reply('Account removed!')
+                
             else:
                 return {'type': 'error', 'message': 'Account is not exists'}
                 

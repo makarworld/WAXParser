@@ -286,11 +286,19 @@ class _utils:
     def get_resourses(self, name: str) -> dict:
         try:
             response = self.scraper.post(self.URL.RESOURSES, json={'account_name': name})
+            #print(response.text)
             response = response.json()
-            cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
+            if 'code' in response.keys():
+                time.sleep(5)
+                raise ValueError(f'Internal Service Error | code: {response["code"]}')
+            #v1
+            if response['cpu_limit']['used'] == 0: 
+                cpu = 100
+            else:
+                cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
             net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
             ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
-            
+
             #wax_to_cpu = response['cpu_limit']['max'] / float(response['total_resources']['cpu_weight'][:-4])
             #free_wax = (response['cpu_limit']['max'] - response['cpu_limit']['used']) / wax_to_cpu
             #print(free_wax)
@@ -308,7 +316,7 @@ class _utils:
                 'cpu_staked': cpu_staked
             }
         except Exception as e:
-            self._log.exception(f'Error to fetch resources: {name} ({e})')
+            self.log(f'Error to fetch resources: {name} ({e})')
             return {
                 'cpu': 0,
                 'net': 0,

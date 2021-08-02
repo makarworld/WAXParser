@@ -124,6 +124,10 @@ def parser(settings, limits_notifications):
         accounts_db = _u.get_accounts(whitelist=accounts)
         
         for account in accounts:
+            acs = loadInStrings(clear_empty=True, separate=False).get(accounts_path)
+            if account not in acs:
+                continue
+                
             log('fetching...', account)
             settings = loadInTxt().get(settings_path)
             settings = Struct(**settings)
@@ -147,6 +151,7 @@ def parser(settings, limits_notifications):
                 _log.error(err)
 
             resourses = _u.get_resourses(account)
+            time.sleep(2)
             #print(resourses)
             
             if resourses['cpu_staked'] is not None:
@@ -239,7 +244,7 @@ def parser(settings, limits_notifications):
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
             
             if settings.timeout: 
-                time.sleep(settings.timeout) 
+                time.sleep(int(settings.timeout)) 
             else: 
                 time.sleep(10)
                 

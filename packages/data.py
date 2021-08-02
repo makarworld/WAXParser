@@ -8,7 +8,7 @@ class URL:
     WAX = "https://wax.bloks.io/account/"
     ATOMIC = "https://wax.atomichub.io/profile/"
     ASSETS = "https://wax.api.atomicassets.io/atomicassets/v1/assets/"
-    RESOURSES = "https://wax.greymass.com/v1/chain/get_account"
+    RESOURSES = "https://wax.pink.gg/v1/chain/get_account"
     GET_PRICE = "https://wax.api.atomicassets.io/atomicmarket/v1/sales"
     GET_WAX_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=wax'
     GET_TLM_PRICE = 'https://api.icodrops.com/portfolio/api/markets/coin?slug=alien-worlds'
