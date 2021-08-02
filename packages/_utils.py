@@ -284,8 +284,8 @@ class _utils:
             return {'success': False, 'response': asset_response}
 
     def get_resourses(self, name: str) -> dict:
-        response = self.scraper.post(self.URL.RESOURSES, json={'account_name': name})
         try:
+            response = self.scraper.post(self.URL.RESOURSES, json={'account_name': name})
             response = response.json()
             cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
             net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
@@ -308,7 +308,7 @@ class _utils:
                 'cpu_staked': cpu_staked
             }
         except Exception as e:
-            self._log.exception(f'Error getting account resources: {name} ({e}) {response}')
+            self._log.exception(f'Error to fetch resources: {name} ({e}) {response}')
             return {
                 'cpu': 0,
                 'net': 0,

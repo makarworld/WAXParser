@@ -17,8 +17,10 @@ try:
     from packages.telegram_hundlers import telegramHundlers
 except ImportError as e:
     print(f"ImportError: {e}")
-    print("Установите библиотеки и попробуйте снова.")
+    print("RU: Установите библиотеки и попробуйте снова.")
     print("**Запустите файл install_packages.bat в папке install чтобы автоматически установить библиотеки")
+    print("EN: Please install packages and try again.")
+    print("**Open file \"install_packages.bat\" in folder \"install\", it's automatically install needed packages.")
     input()
     quit()
     
@@ -67,9 +69,9 @@ settings = Struct(**settings)
 _u = _utils(settings, base, _log, log, scraper, URL, Payload)
 
 # validate settings
-if settings.bot_token is None or\
-    settings.user_id is None: 
-    log('Fill settings.txt and restart')
+if not settings.bot_token or\
+    not settings.user_id: 
+    log('Fill bot_token and user_id in settings.txt and restart')
     input()
     quit()
 
@@ -122,6 +124,7 @@ def parser(settings, limits_notifications):
         accounts_db = _u.get_accounts(whitelist=accounts)
         
         for account in accounts:
+            log('fetching...', account)
             settings = loadInTxt().get(settings_path)
             settings = Struct(**settings)
             if account not in accounts_db.keys():
@@ -234,41 +237,19 @@ def parser(settings, limits_notifications):
                     if is_time_res:
                         notification(f"<b>Account {account} out of {_res.upper()} limit ({resourses[_res]}%).</b>")
                         log(f"Account {account} out of {_res.upper()} limit ({resourses[_res]}%).")
-
-            # NFT DROP IN AlienWorlds
-            if settings.drops_notification == 'true':
-                drops = _u.is_nft_dropped(account)
-                if drops['success']:
-                    if drops['isdrop']:
-                        # nft dropped
-                        info_drop = {}
-                        for _drop in drops['items']:
-                            inf = base.get_by('assets', ['template_id', _drop], ['name'])
-                            if inf:
-                                inf = inf[0]['name']
-                            else:
-                                inf = _u.get_name_by_template(_drop)
-                                
-                            if inf in info_drop.keys():
-                                info_drop[inf] += 1
-                            else:
-                                info_drop[inf] = 1
-                                
-                        limits_notifications, is_time_drops = _u.is_time_to_notif(limits_notifications, 'claim_nft', account, settings.drops_notification_timeout)
-                        if is_time_drops:
-                            text = f'<b>Account {account} drop NFT in AlienWorlds</b>\n'
-                            text += '\n'.join([f'<b>{x} - {y} шт.</b>' for x, y in info_drop.items()])
-                            notification(text)
-                            log(text)
-                else:
-                    _log.error(f"[{account}] Fail to fetch drops")
+            
+            if settings.timeout: 
+                time.sleep(settings.timeout) 
+            else: 
+                time.sleep(10)
                 
 # start thread
 def start(settings, limits_notifications):
-    try:
-        parser(settings, limits_notifications)
-    except Exception as e:
-        _log.exception("MainError: ")
+    while True:
+        try:
+            parser(settings, limits_notifications)
+        except Exception as e:
+            _log.exception("MainError: ")
             
 if __name__ == '__main__':
     Thread(target=start, args=(settings, limits_notifications,)).start()
