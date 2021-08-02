@@ -265,7 +265,9 @@ class telegramHundlers:
             "/timer clear — <b>Сбросить таймер</b>\n"\
             "/timer end — <b>Показать результат подсчета токенов и сбросить таймер</b>\n"\
             "/setprice {price} {item} — <b>Установить цену price вещи item</b>\n"\
-            "/rplanet — <b>Подсчет AETHER/H</b>",
+            "/rplanet — <b>Подсчет AETHER/H</b>\n"\
+            "/add xxxxx.wam — <b>Добавление аккаунта.</b>\n"\
+            "/del xxxxx.wam — <b>Удаление аккаунта.</b>",
             message['from']['id'])
 
     # command /i {wax_name}
