@@ -267,7 +267,8 @@ class telegramHundlers:
             "/setprice {price} {item} — <b>Установить цену price вещи item</b>\n"\
             "/rplanet — <b>Подсчет AETHER/H</b>\n"\
             "/add xxxxx.wam — <b>Добавление аккаунта.</b>\n"\
-            "/del xxxxx.wam — <b>Удаление аккаунта.</b>",
+            "/del xxxxx.wam — <b>Удаление аккаунта.</b>\n"\
+            "/del all — <b>Удалить все аккаунты.</b>",
             message['from']['id'])
 
     # command /i {wax_name}
@@ -383,10 +384,11 @@ class telegramHundlers:
         text += "\n\n"
         
         for k, v in all_items.items():
+
             if v['count'] != 1:
-                all_items[k]['text'] = f"<b>{k}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)} WAX)</b>\n"
+                all_items[k]['text'] = f"<b>{k.replace('<', '〈').replace('>', '〉')}: {v['count']} шт. {v['price']} WAX ({round(v['price']*v['count'], 2)} WAX)</b>\n"
             else:
-                all_items[k]['text'] = f"<b>{k}: {v['count']} шт. {v['price']} WAX </b>\n"
+                all_items[k]['text'] = f"<b>{k.replace('<', '〈').replace('>', '〉')}: {v['count']} шт. {v['price']} WAX </b>\n"
                 
         sorted_items = {k: v for k, v in sorted(all_items.items(), key=lambda item: item[1]['price'])}
 

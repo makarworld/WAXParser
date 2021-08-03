@@ -151,7 +151,6 @@ def parser(settings, limits_notifications):
                 _log.error(err)
 
             resourses = _u.get_resourses(account)
-            time.sleep(2)
             #print(resourses)
             
             if resourses['cpu_staked'] is not None:
@@ -172,6 +171,7 @@ def parser(settings, limits_notifications):
                         if settings.tokens_notifications == 'true':
                             notification(text)
                         log(f'{account} new token deposit to your wallet: {k}: {v}')
+                        _u.update_timer(k, round(v, 5))
                         base.edit_by('accounts', ['name', account], tokens=accounts_db[account]['tokens'])
                     
                 else:
