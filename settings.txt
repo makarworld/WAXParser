@@ -1,7 +1,7 @@
 version: v3.0.8
 user_id: 
 bot_token: 
-timeout: 10
+timeout: 20
 tokens_notifications: true
 nfts_notifications: true
 cpu_limit: 10000
