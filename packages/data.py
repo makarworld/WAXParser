@@ -1,10 +1,11 @@
 import json
+import requests as r
 
 class URL:
     WAX_TOKEN = "https://wax.greymass.com/v1/chain/get_currency_balance"
-    TOKENS = "http://wax.eosphere.io/v2/state/get_tokens?account={}"
+    TOKENS = "https://api.waxsweden.org/v2/state/get_tokens?account={}"
     NODE = "https://api.wax.alohaeos.com/v1/chain/get_table_rows"
-    NFTS = "https://wax.api.atomicassets.io/atomicassets/v1/assets?owner={}&page=1&limit=100000&order=desc&sort=asset_id"
+    NFTS = "https://wax.api.atomicassets.io/atomicassets/v1/assets?owner={}&page=1&limit=100&order=desc&sort=asset_id"
     WAX = "https://wax.bloks.io/account/"
     ATOMIC = "https://wax.atomichub.io/profile/"
     ASSETS = "https://wax.api.atomicassets.io/atomicassets/v1/assets/"
@@ -83,5 +84,4 @@ def to_dict(string: str) -> dict:
     return json.loads(string)
 
 if __name__ == '__main__':
-    u = Payload()
-    print(u.ass_headers)
+    get_endpoints()
