@@ -80,7 +80,7 @@ if not settings.bot_token or\
 # telegram
 bot = Bot(token=settings.bot_token)
 dp = Dispatcher(bot)
-zalupa = asyncio.new_event_loop()
+zalupa = asyncio.get_event_loop()
 
 def notification(text):
     asyncio.run_coroutine_threadsafe(send_to_all_ids(text), zalupa)
@@ -89,7 +89,7 @@ async def send_to_all_ids(text):
     uzs = _u.get_user_ids()
     for u in uzs:
         try:
-            await send_reply(text, u)
+            r = await send_reply(text, u)
         except Exception as e:
             print(f'send_to_all_ids error: {e}')
             
