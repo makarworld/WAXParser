@@ -3,6 +3,7 @@ from datetime import datetime
 import os
 from copy import deepcopy
 
+from .mystruct import Struct
 from .load_data import loadInStrings, to_dict, loadInJSON
 
 def timer_decorator(func):
@@ -55,10 +56,11 @@ class _utils:
                     tokens_response = tokens_response.json()['tokens']
                     return '', [{x['symbol']: x['amount'] for x in tokens_response}][0]
                 else: 
+                    print(tokens_response.text)
                     raise Exception(f"url: {link} | status_code: {tokens_response.status_code}")
                 
             except Exception as e:
-                #self._log.exception('TOKENS:')
+                self._log.exception('TOKENS:')
                 #self.log("Fail to fetch tokens")
                 time.sleep(3)
                 continue
@@ -75,10 +77,11 @@ class _utils:
                     nfts_response = nfts_response.json()
                     return '', list(self.get_assets(nfts_response).keys())
                 else: 
+                    print(nfts_response.text)
                     raise Exception(f"url: {link} | status_code: {nfts_response.status_code}")
                 
             except Exception as e:
-                #self._log.exception('NFTS:')
+                self._log.exception('NFTS:')
                 time.sleep(3)
                 continue
         else:
@@ -247,7 +250,7 @@ class _utils:
                 response = self.scraper.get(self.URL.GET_PRICE, params=params).json()
                 break
             except:
-                self.log("Error with get item price...")
+                self.log(f"Error with get item price... template_id: {template}")
                 time.sleep(5)
             
         if response.get('data'):
@@ -286,18 +289,27 @@ class _utils:
     def get_resourses(self, name: str) -> dict:
         try:
             response = self.scraper.post(self.URL.RESOURSES, json={'account_name': name})
-            #print(response.text)
-            response = response.json()
+            response = Struct(**response.json())
+
             if 'code' in response.keys():
                 time.sleep(5)
-                raise ValueError(f'Internal Service Error | code: {response["code"]}')
+                raise ValueError(f'Internal Service Error | code: {response.code}')
             #v1
-            if response['cpu_limit']['used'] == 0: 
+
+            if response.cpu_limit.used == 0: 
                 cpu = 100
+            elif response.cpu_limit.max == 0:
+                cpu = 0
+                
             else:
-                cpu = round(response['cpu_limit']['used'] / response['cpu_limit']['max'] * 100, 2)
-            net = round(response['net_limit']['used'] / response['net_limit']['max'] * 100, 2)
-            ram = round(response['ram_usage'] / response['ram_quota'] * 100, 2)
+                cpu = round(response.cpu_limit.used / response.cpu_limit.max * 100, 2)
+
+            if response.net_limit.max != 0:
+                net = round(response.net_limit.used / response.net_limit.max * 100, 2)
+            else:
+                net = 0
+
+            ram = round(response.ram_usage / response.ram_quota * 100, 2)
 
             #wax_to_cpu = response['cpu_limit']['max'] / float(response['total_resources']['cpu_weight'][:-4])
             #free_wax = (response['cpu_limit']['max'] - response['cpu_limit']['used']) / wax_to_cpu
@@ -309,20 +321,20 @@ class _utils:
                 cpu_staked = round(float(response['self_delegated_bandwidth']['cpu_weight'][:-4]), 2)
             else:
                 cpu_staked = 0
-            return {
-                'cpu': cpu,
-                'net': net,
-                'ram': ram,
-                'cpu_staked': cpu_staked
-            }
+            return Struct(
+                cpu=cpu,
+                net=net,
+                ram=ram,
+                cpu_staked=cpu_staked
+            )
         except Exception as e:
             self.log(f'Error to fetch resources: {name} ({e})')
-            return {
-                'cpu': 0,
-                'net': 0,
-                'ram': 0,
-                'cpu_staked': None
-            }
+            return Struct(
+                cpu=0,
+                net=0,
+                ram=0,
+                cpu_staked=None
+            )
             
     def get_notification_text(self, name: str, _type: str, body: str):
         return f"<b>Account:</b> <code>{name}</code>\n"\
