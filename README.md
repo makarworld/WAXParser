@@ -1,10 +1,9 @@
 # WAXParser
-
 Создатель | Creator: https://vk.com/abuz.trade
 
 Группа ВК | VK Group: https://vk.com/lowbank.trade
 
-TG Создателя | TG Creator: https://t.me/The_Makarworld 
+TG Создателя | TG Creator: https://t.me/abuztrade 
 
 Гайд | Guide: https://telegra.ph/WAXParser-04-24
 
@@ -21,17 +20,12 @@ TG Создателя | TG Creator: https://t.me/The_Makarworld
 3. Запустить файл main.py
 
 # Installation Ubuntu
-
+```bash
 sudo apt install python3.8
-
 sudo apt install git
-
 sudo apt install python3-pip
-
 git clone https://github.com/makarworld/WAXParser
-
 cd WAXParser
-
 pip3 install -r requirements.txt
-
+```
 python3 main.py
